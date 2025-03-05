@@ -76,6 +76,10 @@ export default function CharacterSheet({
   const [inventoryFilter, setInventoryFilter] = useState<ItemType | "all">("all")
   const [rarityFilter, setRarityFilter] = useState<ItemRarity | "all">("all")
   const [showEquippableOnly, setShowEquippableOnly] = useState(false)
+  
+  // Constants for inventory display
+  const INVENTORY_SLOTS_PER_ROW = 7;
+  const INVENTORY_MIN_ROWS = 5;
 
   const getExperiencePercentage = (current: number, max: number) => {
     return Math.min(Math.round((current / max) * 100), 100)
@@ -193,6 +197,120 @@ export default function CharacterSheet({
       </div>
     )
   }
+
+  // Render the inventory tab content
+  const renderInventoryTab = () => {
+    const filteredItems = getFilteredInventory();
+    const itemCount = filteredItems.length;
+    
+    // Calculate how many rows we need (minimum of INVENTORY_MIN_ROWS)
+    const rowsNeeded = Math.max(INVENTORY_MIN_ROWS, Math.ceil(itemCount / INVENTORY_SLOTS_PER_ROW));
+    const totalSlots = rowsNeeded * INVENTORY_SLOTS_PER_ROW;
+    
+    return (
+      <div className="space-y-4">
+        {/* Inventory Filters */}
+        <div className="flex flex-wrap gap-2 pb-3 border-b border-amber-900/50 mb-4">
+          <div className="flex items-center gap-2">
+            <Filter className="w-4 h-4 text-amber-400" />
+            <span className="text-sm text-amber-400 font-medium">FILTERS:</span>
+          </div>
+          
+          <Select value={inventoryFilter} onValueChange={(value) => setInventoryFilter(value as ItemType | "all")}>
+            <SelectTrigger className="h-8 w-32 bg-gray-800/80 border-amber-900/50 hover:border-amber-500/70 transition-colors">
+              <SelectValue placeholder="Item Type" />
+            </SelectTrigger>
+            <SelectContent className="bg-gray-900 border-amber-900">
+              <SelectItem value="all">All Types</SelectItem>
+              <SelectItem value="weapon">Weapons</SelectItem>
+              <SelectItem value="armor">Armor</SelectItem>
+              <SelectItem value="accessory">Accessories</SelectItem>
+              <SelectItem value="potion">Potions</SelectItem>
+              <SelectItem value="ingredient">Ingredients</SelectItem>
+              <SelectItem value="tool">Tools</SelectItem>
+              <SelectItem value="magical">Magical</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Select value={rarityFilter} onValueChange={(value) => setRarityFilter(value as ItemRarity | "all")}>
+            <SelectTrigger className="h-8 w-32 bg-gray-800/80 border-amber-900/50 hover:border-amber-500/70 transition-colors">
+              <SelectValue placeholder="Rarity" />
+            </SelectTrigger>
+            <SelectContent className="bg-gray-900 border-amber-900">
+              <SelectItem value="all">All Rarities</SelectItem>
+              <SelectItem value="common">Common</SelectItem>
+              <SelectItem value="uncommon">Uncommon</SelectItem>
+              <SelectItem value="rare">Rare</SelectItem>
+              <SelectItem value="epic">Epic</SelectItem>
+              <SelectItem value="legendary">Legendary</SelectItem>
+            </SelectContent>
+          </Select>
+          
+          <Button 
+            size="sm" 
+            variant={showEquippableOnly ? "default" : "outline"}
+            className={`h-8 text-xs ${showEquippableOnly ? 'bg-amber-900/80 text-amber-100 hover:bg-amber-800' : 'border-amber-900/50 text-amber-400 hover:border-amber-500/70'}`}
+            onClick={() => setShowEquippableOnly(!showEquippableOnly)}
+          >
+            Equippable Only
+          </Button>
+        </div>
+        
+        {/* Inventory Container with Glow Effect */}
+        <div className="relative">
+          {/* Background glow effect - increased z-index to ensure visibility */}
+          <div className="absolute inset-0 bg-amber-900/10 rounded-lg blur-xl z-0"></div>
+          
+          {/* Inventory Grid */}
+          <div className="relative bg-gray-900/80 border border-amber-900/30 rounded-lg p-4 shadow-lg backdrop-blur-sm z-10">
+            <div className="grid grid-cols-7 gap-2 max-h-[400px] overflow-y-auto p-1">
+              {/* Create a fixed grid of identical empty slots */}
+              {Array.from({ length: totalSlots }).map((_, index) => {
+                const inventoryItem = filteredItems[index];
+                
+                return (
+                  <div 
+                    key={index} 
+                    className="aspect-square rounded-md border border-gray-700/30 bg-gray-800/40 flex items-center justify-center"
+                  >
+                    {inventoryItem && (
+                      <div className="w-full h-full flex items-center justify-center">
+                        <ItemSlot
+                          item={inventoryItem.gameItem}
+                          onDragStart={() => {}}
+                          quantity={inventoryItem.quantity}
+                          onClick={() => {
+                            if (inventoryItem.gameItem && 
+                                inventoryItem.gameItem.equippable && 
+                                inventoryItem.gameItem.slot) {
+                              handleSelectEquipSlot(inventoryItem.gameItem.slot)
+                              handleEquipItem(inventoryItem.id)
+                            }
+                          }}
+                          size="small"
+                        />
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </div>
+            
+            {filteredItems.length === 0 && (
+              <div className="text-center text-amber-400/70 py-12 italic">
+                No items match the selected filters
+              </div>
+            )}
+            
+            {/* Item count display */}
+            <div className="mt-3 text-right text-sm text-amber-400/70">
+              {filteredItems.length} / {inventory.length} items
+            </div>
+          </div>
+        </div>
+      </div>
+    );
+  };
 
   return (
     <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
@@ -526,79 +644,7 @@ export default function CharacterSheet({
             </TabsContent>
 
             <TabsContent value="inventory" className="p-4">
-              <div className="space-y-4">
-                {/* Inventory Filters */}
-                <div className="flex flex-wrap gap-2 pb-2 border-b border-gray-700">
-                  <div className="flex items-center gap-2">
-                    <Filter className="w-4 h-4 text-gray-400" />
-                    <span className="text-sm text-gray-400">Filters:</span>
-                  </div>
-                  
-                  <Select value={inventoryFilter} onValueChange={(value) => setInventoryFilter(value as ItemType | "all")}>
-                    <SelectTrigger className="h-8 w-32 bg-gray-800 border-gray-700">
-                      <SelectValue placeholder="Item Type" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Types</SelectItem>
-                      <SelectItem value="weapon">Weapons</SelectItem>
-                      <SelectItem value="armor">Armor</SelectItem>
-                      <SelectItem value="accessory">Accessories</SelectItem>
-                      <SelectItem value="potion">Potions</SelectItem>
-                      <SelectItem value="ingredient">Ingredients</SelectItem>
-                      <SelectItem value="tool">Tools</SelectItem>
-                      <SelectItem value="magical">Magical</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Select value={rarityFilter} onValueChange={(value) => setRarityFilter(value as ItemRarity | "all")}>
-                    <SelectTrigger className="h-8 w-32 bg-gray-800 border-gray-700">
-                      <SelectValue placeholder="Rarity" />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">All Rarities</SelectItem>
-                      <SelectItem value="common">Common</SelectItem>
-                      <SelectItem value="uncommon">Uncommon</SelectItem>
-                      <SelectItem value="rare">Rare</SelectItem>
-                      <SelectItem value="epic">Epic</SelectItem>
-                      <SelectItem value="legendary">Legendary</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  
-                  <Button 
-                    size="sm" 
-                    variant={showEquippableOnly ? "default" : "outline"}
-                    className="h-8 text-xs"
-                    onClick={() => setShowEquippableOnly(!showEquippableOnly)}
-                  >
-                    Equippable Only
-                  </Button>
-                </div>
-                
-                {/* Filtered Inventory */}
-                <div className="grid grid-cols-5 gap-2 max-h-[400px] overflow-y-auto p-1">
-                  {getFilteredInventory().map((item) => (
-                    <div key={item.id}>
-                      <ItemSlot
-                        item={item.gameItem}
-                        onDragStart={() => {}}
-                        quantity={item.quantity}
-                        onClick={() => {
-                          if (item.gameItem.equippable && item.gameItem.slot) {
-                            handleSelectEquipSlot(item.gameItem.slot)
-                            handleEquipItem(item.id)
-                          }
-                        }}
-                      />
-                    </div>
-                  ))}
-                  
-                  {getFilteredInventory().length === 0 && (
-                    <div className="col-span-5 text-center text-gray-500 py-8">
-                      No items match the selected filters
-                    </div>
-                  )}
-                </div>
-              </div>
+              {renderInventoryTab()}
             </TabsContent>
           </Tabs>
         </div>

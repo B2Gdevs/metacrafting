@@ -53,13 +53,7 @@ export const npcShopItems = [
     price: 650,
     currency: "gold" as const,
     stock: 1
-  },
-  {
-    id: "cursed_energy_ring",
-    price: 20,
-    currency: "gems" as const,
-    stock: 1
-  },
+  }
 ];
 
 // NPC Avatar and Dialogues
