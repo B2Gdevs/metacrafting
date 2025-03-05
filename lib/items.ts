@@ -133,6 +133,8 @@ export const gameItems: Record<string, Item> = {
     type: "weapon",
     subType: "melee",
     requiredLevel: 3,
+    equippable: true,
+    slot: "weapon",
     stats: {
       Attack: 5,
       Speed: 2,
@@ -146,6 +148,8 @@ export const gameItems: Record<string, Item> = {
     type: "weapon",
     subType: "magic",
     magicValue: 3,
+    equippable: true,
+    slot: "weapon",
     stats: {
       "Magic Power": 4,
     },
@@ -157,6 +161,8 @@ export const gameItems: Record<string, Item> = {
     description: "Basic head protection",
     type: "armor",
     subType: "head",
+    equippable: true,
+    slot: "head",
     stats: {
       Defense: 2,
     },
@@ -190,6 +196,8 @@ export const gameItems: Record<string, Item> = {
     subType: "melee",
     requiredLevel: 5,
     magicValue: 5,
+    equippable: true,
+    slot: "weapon",
     stats: {
       Attack: 8,
       "Magic Damage": 3,
@@ -204,6 +212,8 @@ export const gameItems: Record<string, Item> = {
     subType: "body",
     requiredLevel: 8,
     magicValue: 6,
+    equippable: true,
+    slot: "chest",
     stats: {
       Defense: 12,
       "Magic Defense": 8,
@@ -219,6 +229,8 @@ export const gameItems: Record<string, Item> = {
     subType: "magic",
     requiredLevel: 7,
     magicValue: 12,
+    equippable: true,
+    slot: "weapon",
     stats: {
       "Magic Power": 10,
       "Spell Efficiency": 5,
@@ -232,6 +244,8 @@ export const gameItems: Record<string, Item> = {
     type: "accessory",
     subType: "neck",
     magicValue: 7,
+    equippable: true,
+    slot: "neck",
     stats: {
       "Magic Power": 3,
       "MP Regeneration": 2,
