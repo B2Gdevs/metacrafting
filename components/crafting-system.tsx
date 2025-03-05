@@ -685,7 +685,7 @@ export default function CraftingSystem() {
       });
       return;
     }
-    
+
     // Check if enough magic points
     if (recipe.magicCost && character.magicPoints < recipe.magicCost) {
       setCraftingResult({
@@ -744,24 +744,24 @@ export default function CraftingSystem() {
     // Roll for success
     const roll = Math.random() * 100;
     const success = roll <= successChance;
-    
+
     // Play crafting animation
     setCraftingAnimation(true);
-    
+
     setTimeout(() => {
       if (success) {
         // Add crafted item to inventory
         const existingItem = newInventory.find((item) => item.id === recipe.output);
-        
+
         if (existingItem) {
           existingItem.quantity += 1;
         } else {
           newInventory.push({ id: recipe.output, quantity: 1 });
         }
-        
+
         // Award experience
         const newCharacter = { ...character };
-        
+
         if (recipe.experienceGain.metalworking) {
           newCharacter.craftingExperience.metalworking += recipe.experienceGain.metalworking;
           // Check for level up
@@ -770,7 +770,7 @@ export default function CraftingSystem() {
             newCharacter.craftingStats.metalworking += 1;
           }
         }
-        
+
         if (recipe.experienceGain.magicworking) {
           newCharacter.craftingExperience.magicworking += recipe.experienceGain.magicworking;
           // Check for level up
@@ -779,7 +779,7 @@ export default function CraftingSystem() {
             newCharacter.craftingStats.magicworking += 1;
           }
         }
-        
+
         if (recipe.experienceGain.spellcraft) {
           newCharacter.craftingExperience.spellcraft += recipe.experienceGain.spellcraft;
           // Check for level up
@@ -788,15 +788,15 @@ export default function CraftingSystem() {
             newCharacter.craftingStats.spellcraft += 1;
           }
         }
-        
+
         // Deduct magic points if required
         if (recipe.magicCost) {
           newCharacter.magicPoints = Math.max(0, newCharacter.magicPoints - recipe.magicCost);
         }
-        
+
         setCharacter(newCharacter);
         setInventory(newInventory);
-        
+
         setCraftingResult({
           success: true,
           message: `Successfully crafted ${gameItems[recipe.output].name}!`,
@@ -821,7 +821,7 @@ export default function CraftingSystem() {
           success: false,
           message: "Crafting failed! Materials were lost in the process.",
         });
-        
+
         // Still deduct magic points if required
         if (recipe.magicCost) {
           setCharacter({
@@ -1033,23 +1033,23 @@ export default function CraftingSystem() {
       <div className="flex justify-between items-center">
         <h2 className="text-2xl font-bold text-amber-400">Crafting Workshop</h2>
         <div className="flex space-x-2">
-          <TooltipProvider>
-            <Tooltip>
-              <TooltipTrigger asChild>
-                <Button 
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <Button
                   variant="outline" 
-                  size="icon" 
-                  onClick={() => setShowRecipeBook(!showRecipeBook)}
+                        size="icon"
+                        onClick={() => setShowRecipeBook(!showRecipeBook)}
                   className="game-button-secondary"
-                >
-                  <Book className="h-5 w-5" />
-                </Button>
-              </TooltipTrigger>
-              <TooltipContent>
-                <p>Recipe Book</p>
-              </TooltipContent>
-            </Tooltip>
-          </TooltipProvider>
+                      >
+                        <Book className="h-5 w-5" />
+                      </Button>
+                    </TooltipTrigger>
+                    <TooltipContent>
+                      <p>Recipe Book</p>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
         </div>
       </div>
       
@@ -1180,25 +1180,25 @@ export default function CraftingSystem() {
                           }}
                           className="w-full h-full flex items-center justify-center cursor-grab"
                         >
-                          <TooltipProvider>
-                            <Tooltip>
-                              <TooltipTrigger asChild>
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
                                 <img
                                   src={gameItems[item]?.image || "/placeholder.png"}
                                   alt={gameItems[item]?.name || item}
                                   className="max-w-full max-h-full p-1"
                                 />
-                              </TooltipTrigger>
+                    </TooltipTrigger>
                               <TooltipContent side="right">
                                 <div className="space-y-1">
                                   <p className="font-medium">{gameItems[item]?.name}</p>
                                   <p className="text-xs text-gray-400">{gameItems[item]?.description}</p>
                                   <p className="text-xs text-gray-400">{gameItems[item]?.type}</p>
                                 </div>
-                              </TooltipContent>
-                            </Tooltip>
-                          </TooltipProvider>
-                        </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
+              </div>
                         <button 
                           className="absolute -top-2 -right-2 bg-red-800 text-white rounded-full w-5 h-5 flex items-center justify-center text-xs hover:bg-red-700"
                           onClick={() => {
@@ -1211,19 +1211,19 @@ export default function CraftingSystem() {
                         </button>
                       </div>
                     )}
-                  </div>
+                    </div>
                 ))}
-              </div>
-              
+                  </div>
+
               <div className="flex justify-between items-center mb-4">
-                <Button 
+                      <Button
                   variant="destructive" 
-                  size="sm" 
-                  onClick={clearGrid}
+                        size="sm"
+                        onClick={clearGrid}
                   className="bg-red-800 hover:bg-red-700 text-white"
-                >
+                      >
                   Clear Grid
-                </Button>
+                      </Button>
                 
                 <Button 
                   variant="default" 
@@ -1257,15 +1257,15 @@ export default function CraftingSystem() {
                         src={gameItems[result]?.image || "/placeholder.png"} 
                         alt={gameItems[result]?.name || result}
                         className="w-12 h-12 bg-gray-900 p-1 rounded-md border border-gray-700"
-                      />
-                    )}
-                  </div>
-                </div>
+                            />
+                          )}
+                        </div>
+                    </div>
               )}
             </div>
-          </div>
-        </div>
-        
+                    </div>
+                  </div>
+
         {/* Right column - Character Stats and Inventory */}
         <div className="space-y-4">
           <CraftingCharacterStats 
@@ -1316,9 +1316,9 @@ export default function CraftingSystem() {
               </div>
             </div>
             <div className="game-card-content">
-              <AnimatePresence>
+                        <AnimatePresence>
                 {showFilterMenu && (
-                  <motion.div
+                            <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
@@ -1410,13 +1410,13 @@ export default function CraftingSystem() {
                         </Badge>
                       </div>
                     </div>
-                  </motion.div>
-                )}
+                          </motion.div>
+                        )}
               </AnimatePresence>
-              
+
               <AnimatePresence>
                 {showSortMenu && (
-                  <motion.div
+                        <motion.div
                     initial={{ opacity: 0, height: 0 }}
                     animate={{ opacity: 1, height: "auto" }}
                     exit={{ opacity: 0, height: 0 }}
@@ -1425,27 +1425,27 @@ export default function CraftingSystem() {
                     <div className="p-3 bg-gray-800 rounded-md border border-gray-700">
                       <h4 className="text-sm font-medium text-gray-300 mb-2">Sort by</h4>
                       <div className="flex flex-wrap gap-2">
-                        <Badge 
+                            <Badge
                           variant={inventorySort === "name" ? "default" : "outline"}
                           className="cursor-pointer"
                           onClick={() => setInventorySort("name")}
                         >
                           Name
-                        </Badge>
-                        <Badge 
+                            </Badge>
+                              <Badge
                           variant={inventorySort === "type" ? "default" : "outline"}
                           className="cursor-pointer"
                           onClick={() => setInventorySort("type")}
-                        >
+                              >
                           Type
-                        </Badge>
-                        <Badge 
+                              </Badge>
+                              <Badge
                           variant={inventorySort === "quantity" ? "default" : "outline"}
                           className="cursor-pointer"
                           onClick={() => setInventorySort("quantity")}
                         >
                           Quantity
-                        </Badge>
+                              </Badge>
                         <Badge 
                           variant={inventorySort === "rarity" ? "default" : "outline"}
                           className="cursor-pointer"
@@ -1454,9 +1454,9 @@ export default function CraftingSystem() {
                           Rarity
                         </Badge>
                       </div>
-                    </div>
-                  </motion.div>
-                )}
+                          </div>
+                        </motion.div>
+                      )}
               </AnimatePresence>
 
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-2">
@@ -1515,8 +1515,8 @@ export default function CraftingSystem() {
                                   <span>•</span>
                                   <span>{gameItem.slot.charAt(0).toUpperCase() + gameItem.slot.slice(1)}</span>
                                 </>
-                              )}
-                            </div>
+                      )}
+                    </div>
                             <p className="text-sm text-gray-300 mb-2">{gameItem.description}</p>
                             
                             {gameItem.stats && Object.keys(gameItem.stats).length > 0 && (
@@ -1543,9 +1543,9 @@ export default function CraftingSystem() {
                                 }>
                                   Requires Level {gameItem.requiredLevel}
                                 </span>
-                              </div>
+                  </div>
                             )}
-                          </div>
+                </div>
                         </TooltipContent>
                       </Tooltip>
                     </TooltipProvider>
@@ -1570,7 +1570,7 @@ export default function CraftingSystem() {
               >
                 <X className="h-5 w-5" />
               </Button>
-            </div>
+          </div>
             <div className="p-4 overflow-y-auto max-h-[calc(90vh-4rem)]">
               <RecipeBook 
                 recipes={recipes} 
@@ -1579,8 +1579,8 @@ export default function CraftingSystem() {
                 inventory={inventory}
                 onQuickCraft={handleQuickCraft}
               />
-            </div>
-          </div>
+        </div>
+      </div>
         </div>
       )}
     </div>

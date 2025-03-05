@@ -78,8 +78,9 @@ export interface StatusEffect {
   description: string;
   duration: number;
   type: "buff" | "debuff";
+  effect?: "poison" | "bleed" | "weakness" | "burn" | "stun";
   statModifiers: Record<string, number>;
-  tickEffect?: () => void;
+  tickEffect?: () => number;
 }
 
 // Define combat action structure

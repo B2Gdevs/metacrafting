@@ -475,9 +475,13 @@ export default function CombatSystem({
         }
         
         result.statusEffects.push({
-          type: randomEffect,
+          name: randomEffect.charAt(0).toUpperCase() + randomEffect.slice(1),
+          description: `Suffering from ${randomEffect}`,
+          type: "debuff",
+          effect: randomEffect,
           duration: 2,
-          value: Math.floor(updatedEnemyEntity.level * 1.5)
+          statModifiers: {},
+          tickEffect: () => Math.floor(updatedEnemyEntity.level * 1.5)
         });
         
         result.message += ` The attack causes ${randomEffect}!`;
@@ -696,13 +700,19 @@ export default function CombatSystem({
     if (!playerEntity || !enemyEntity) return null;
     
     // Helper function to get status effect styling
-    const getStatusEffectStyle = (effectType: string) => {
-      switch(effectType) {
-        case "poison": return "border-green-600 text-green-400";
-        case "burn": return "border-orange-600 text-orange-400";
-        case "bleed": return "border-red-600 text-red-400";
-        case "stun": return "border-yellow-600 text-yellow-400";
-        case "weakness": return "border-purple-600 text-purple-400";
+    const getStatusEffectStyle = (effect: StatusEffect) => {
+      if (effect.effect) {
+        switch(effect.effect) {
+          case "poison": return "border-green-600 text-green-400";
+          case "burn": return "border-orange-600 text-orange-400";
+          case "bleed": return "border-red-600 text-red-400";
+          case "stun": return "border-yellow-600 text-yellow-400";
+          case "weakness": return "border-purple-600 text-purple-400";
+        }
+      }
+      
+      // Fallback to type-based styling
+      switch(effect.type) {
         case "buff": return "border-blue-600 text-blue-400";
         case "debuff": return "border-purple-600 text-purple-400";
         default: return "border-gray-600 text-gray-400";
@@ -759,9 +769,9 @@ export default function CombatSystem({
                       <Badge 
                         key={`${effect.type}-${index}`}
                         variant="outline"
-                        className={getStatusEffectStyle(effect.type)}
+                        className={getStatusEffectStyle(effect)}
                       >
-                        {effect.type.charAt(0).toUpperCase() + effect.type.slice(1)} ({effect.duration})
+                        {effect.name} ({effect.duration})
                       </Badge>
                     ))}
                   </div>
@@ -803,9 +813,9 @@ export default function CombatSystem({
                       <Badge 
                         key={`${effect.type}-${index}`}
                         variant="outline"
-                        className={getStatusEffectStyle(effect.type)}
+                        className={getStatusEffectStyle(effect)}
                       >
-                        {effect.type.charAt(0).toUpperCase() + effect.type.slice(1)} ({effect.duration})
+                        {effect.name} ({effect.duration})
                       </Badge>
                     ))}
                   </div>
