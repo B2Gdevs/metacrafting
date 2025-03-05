@@ -12,6 +12,7 @@ export const gameItems: Record<string, Item> = {
     description: "Basic crafting material gathered from trees",
     type: "ingredient",
     subType: "natural",
+    rarity: "common",
   },
   stone: {
     id: "stone",
@@ -20,6 +21,7 @@ export const gameItems: Record<string, Item> = {
     description: "Common material found throughout the world",
     type: "ingredient",
     subType: "mineral",
+    rarity: "common",
   },
   iron: {
     id: "iron",
@@ -28,6 +30,7 @@ export const gameItems: Record<string, Item> = {
     description: "Metal ore that can be refined and crafted",
     type: "ingredient",
     subType: "metal",
+    rarity: "common",
   },
   leather: {
     id: "leather",
@@ -36,6 +39,7 @@ export const gameItems: Record<string, Item> = {
     description: "Processed animal hide used for armor and items",
     type: "ingredient",
     subType: "animal",
+    rarity: "common",
   },
   herb: {
     id: "herb",
@@ -44,6 +48,7 @@ export const gameItems: Record<string, Item> = {
     description: "Medicinal plant with magical properties",
     type: "ingredient",
     subType: "magical",
+    rarity: "common",
   },
   crystal: {
     id: "crystal",
@@ -53,6 +58,7 @@ export const gameItems: Record<string, Item> = {
     type: "ingredient",
     subType: "magical",
     magicValue: 5,
+    rarity: "common",
   },
   steel: {
     id: "steel",
@@ -61,6 +67,7 @@ export const gameItems: Record<string, Item> = {
     description: "Refined metal alloy for crafting weapons and armor",
     type: "ingredient",
     subType: "metal",
+    rarity: "common",
   },
   cloth: {
     id: "cloth",
@@ -69,6 +76,7 @@ export const gameItems: Record<string, Item> = {
     description: "Woven fabric for crafting clothing and light armor",
     type: "ingredient",
     subType: "textile",
+    rarity: "common",
   },
   enchanted_leather: {
     id: "enchanted_leather",
@@ -78,6 +86,7 @@ export const gameItems: Record<string, Item> = {
     type: "ingredient",
     subType: "magical",
     magicValue: 3,
+    rarity: "common",
   },
   dragon_scale: {
     id: "dragon_scale",
@@ -87,6 +96,7 @@ export const gameItems: Record<string, Item> = {
     type: "ingredient",
     subType: "magical",
     magicValue: 8,
+    rarity: "common",
   },
   ancient_rune: {
     id: "ancient_rune",
@@ -96,6 +106,7 @@ export const gameItems: Record<string, Item> = {
     type: "ingredient",
     subType: "magical",
     magicValue: 10,
+    rarity: "common",
   },
   silver: {
     id: "silver",
@@ -104,6 +115,7 @@ export const gameItems: Record<string, Item> = {
     description: "Refined silver metal, excellent for magical conductivity",
     type: "ingredient",
     subType: "metal",
+    rarity: "common",
   },
   axe: {
     id: "axe",
@@ -114,6 +126,7 @@ export const gameItems: Record<string, Item> = {
     stats: {
       Gathering: 2,
     },
+    rarity: "common",
   },
   pickaxe: {
     id: "pickaxe",
@@ -124,6 +137,7 @@ export const gameItems: Record<string, Item> = {
     stats: {
       Mining: 3,
     },
+    rarity: "common",
   },
   sword: {
     id: "sword",
@@ -138,6 +152,7 @@ export const gameItems: Record<string, Item> = {
       Attack: 5,
       Speed: 2,
     },
+    rarity: "common",
   },
   staff: {
     id: "staff",
@@ -152,6 +167,7 @@ export const gameItems: Record<string, Item> = {
     stats: {
       "Magic Power": 4,
     },
+    rarity: "common",
   },
   helmet: {
     id: "helmet",
@@ -165,6 +181,7 @@ export const gameItems: Record<string, Item> = {
     stats: {
       Defense: 2,
     },
+    rarity: "common",
   },
   potion: {
     id: "potion",
@@ -175,6 +192,7 @@ export const gameItems: Record<string, Item> = {
     stats: {
       Healing: 20,
     },
+    rarity: "common",
   },
   mana_potion: {
     id: "mana_potion",
@@ -185,6 +203,7 @@ export const gameItems: Record<string, Item> = {
     stats: {
       "MP Restore": 15,
     },
+    rarity: "common",
   },
   enchanted_sword: {
     id: "enchanted_sword",
@@ -200,6 +219,7 @@ export const gameItems: Record<string, Item> = {
       Attack: 8,
       "Magic Damage": 3,
     },
+    rarity: "common",
   },
   dragon_armor: {
     id: "dragon_armor",
@@ -216,6 +236,7 @@ export const gameItems: Record<string, Item> = {
       "Magic Defense": 8,
       "Fire Resistance": 15,
     },
+    rarity: "common",
   },
   runic_staff: {
     id: "runic_staff",
@@ -231,6 +252,7 @@ export const gameItems: Record<string, Item> = {
       "Magic Power": 10,
       "Spell Efficiency": 5,
     },
+    rarity: "common",
   },
   silver_amulet: {
     id: "silver_amulet",
@@ -246,6 +268,7 @@ export const gameItems: Record<string, Item> = {
       "Magic Power": 3,
       "MP Regeneration": 2,
     },
+    rarity: "common",
   },
   healing_salve: {
     id: "healing_salve",
@@ -256,6 +279,7 @@ export const gameItems: Record<string, Item> = {
     stats: {
       "Healing Over Time": 30,
     },
+    rarity: "common",
   },
   fireball_scroll: {
     id: "fireball_scroll",
@@ -269,6 +293,7 @@ export const gameItems: Record<string, Item> = {
       "Fire Damage": 25,
       "Area Effect": 3,
     },
+    rarity: "common",
   },
   frost_rune: {
     id: "frost_rune",
@@ -282,6 +307,7 @@ export const gameItems: Record<string, Item> = {
       "Ice Damage": 15,
       "Freeze Duration": 4,
     },
+    rarity: "common",
   },
   lightning_gem: {
     id: "lightning_gem",
@@ -295,6 +321,7 @@ export const gameItems: Record<string, Item> = {
       "Lightning Damage": 30,
       "Chain Targets": 3,
     },
+    rarity: "common",
   },
   iron_helmet: {
     id: "iron_helmet",
@@ -307,7 +334,8 @@ export const gameItems: Record<string, Item> = {
     slot: "head",
     stats: {
       "Defense": 5,
-    }
+    },
+    rarity: "common",
   },
   leather_chest: {
     id: "leather_chest",
@@ -321,7 +349,8 @@ export const gameItems: Record<string, Item> = {
     stats: {
       "Defense": 6,
       "Movement Speed": 1,
-    }
+    },
+    rarity: "common",
   },
   iron_leggings: {
     id: "iron_leggings",
@@ -334,7 +363,8 @@ export const gameItems: Record<string, Item> = {
     slot: "legs",
     stats: {
       "Defense": 4,
-    }
+    },
+    rarity: "common",
   },
   leather_boots: {
     id: "leather_boots",
@@ -348,7 +378,8 @@ export const gameItems: Record<string, Item> = {
     stats: {
       "Defense": 2,
       "Movement Speed": 2,
-    }
+    },
+    rarity: "common",
   },
   iron_gauntlets: {
     id: "iron_gauntlets",
@@ -362,7 +393,8 @@ export const gameItems: Record<string, Item> = {
     stats: {
       "Defense": 3,
       "Strength": 1,
-    }
+    },
+    rarity: "common",
   },
   silver_ring: {
     id: "silver_ring",
@@ -375,7 +407,8 @@ export const gameItems: Record<string, Item> = {
     slot: "rings",
     stats: {
       "Magic Defense": 2,
-    }
+    },
+    rarity: "common",
   },
   cursed_energy_ring: {
     id: "cursed_energy_ring",
@@ -405,7 +438,8 @@ export const gameItems: Record<string, Item> = {
     stats: {
       "Damage": 8,
       "Attack Speed": 1.2,
-    }
+    },
+    rarity: "common",
   },
   wooden_shield: {
     id: "wooden_shield",
@@ -416,9 +450,95 @@ export const gameItems: Record<string, Item> = {
     subType: "shield",
     equippable: true,
     slot: "offhand",
+    rarity: "common",
     stats: {
       "Block Chance": 15,
       "Defense": 3,
     }
+  },
+  poisoned_dagger: {
+    id: "poisoned_dagger",
+    name: "Poisoned Dagger",
+    image: "/placeholder.svg?height=64&width=64",
+    description: "A dagger coated with deadly poison",
+    type: "weapon",
+    subType: "dagger",
+    equippable: true,
+    slot: "weapon",
+    rarity: "rare",
+    stats: {
+      "Damage": 6,
+      "Attack Speed": 1.5,
+      "Poison Damage": 3
+    },
+    specialAbility: "Has a chance to apply poison on hit"
+  },
+  bleeding_axe: {
+    id: "bleeding_axe",
+    name: "Bleeding Axe",
+    image: "/placeholder.svg?height=64&width=64",
+    description: "A cruel axe that causes wounds that won't stop bleeding",
+    type: "weapon",
+    subType: "axe",
+    equippable: true,
+    slot: "weapon",
+    rarity: "epic",
+    stats: {
+      "Damage": 12,
+      "Attack Speed": 0.8,
+      "Bleed Chance": 25
+    },
+    specialAbility: "Has a chance to cause bleeding on hit"
+  },
+  weakness_staff: {
+    id: "weakness_staff",
+    name: "Staff of Weakness",
+    image: "/placeholder.svg?height=64&width=64",
+    description: "A magical staff that saps the strength of enemies",
+    type: "weapon",
+    subType: "staff",
+    equippable: true,
+    slot: "weapon",
+    rarity: "rare",
+    stats: {
+      "Magic Damage": 10,
+      "Magic Power": 8,
+      "Weakness Effect": 20
+    },
+    specialAbility: "Has a chance to apply weakness on hit"
+  },
+  burning_gauntlets: {
+    id: "burning_gauntlets",
+    name: "Burning Gauntlets",
+    image: "/placeholder.svg?height=64&width=64",
+    description: "Gauntlets imbued with fire magic",
+    type: "armor",
+    subType: "gauntlets",
+    equippable: true,
+    slot: "hands",
+    rarity: "epic",
+    stats: {
+      "Defense": 5,
+      "Magic Power": 7,
+      "Fire Damage": 4
+    },
+    specialAbility: "Has a chance to apply burn on hit"
+  },
+  stunning_mace: {
+    id: "stunning_mace",
+    name: "Stunning Mace",
+    image: "/placeholder.svg?height=64&width=64",
+    description: "A heavy mace that can stun opponents",
+    type: "weapon",
+    subType: "mace",
+    equippable: true,
+    slot: "weapon",
+    rarity: "uncommon",
+    stats: {
+      "Damage": 9,
+      "Attack Speed": 0.7,
+      "Stun Chance": 15
+    },
+    specialAbility: "Has a chance to stun enemies on hit"
   },
 }; 

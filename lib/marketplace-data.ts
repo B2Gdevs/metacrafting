@@ -22,6 +22,44 @@ export const npcShopItems = [
   { id: "dragon_scale", price: 3, currency: "gems" as const, stock: 3 },
   { id: "ancient_rune", price: 4, currency: "gems" as const, stock: 2 },
   { id: "cursed_energy_ring", price: 10, currency: "gems" as const, stock: 1 },
+  
+  // Add the new status effect items
+  {
+    id: "poisoned_dagger",
+    price: 750,
+    currency: "gold" as const,
+    stock: 1
+  },
+  {
+    id: "bleeding_axe",
+    price: 1200,
+    currency: "gold" as const,
+    stock: 1
+  },
+  {
+    id: "weakness_staff",
+    price: 850,
+    currency: "gold" as const,
+    stock: 1
+  },
+  {
+    id: "burning_gauntlets",
+    price: 15,
+    currency: "gems" as const,
+    stock: 1
+  },
+  {
+    id: "stunning_mace",
+    price: 650,
+    currency: "gold" as const,
+    stock: 1
+  },
+  {
+    id: "cursed_energy_ring",
+    price: 20,
+    currency: "gems" as const,
+    stock: 1
+  },
 ];
 
 // NPC Avatar and Dialogues

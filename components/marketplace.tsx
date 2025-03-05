@@ -89,6 +89,7 @@ export default function Marketplace({
   const [useDualCurrency, setUseDualCurrency] = useState<boolean>(false);
   const [statsFilter, setStatsFilter] = useState<string[]>([]);
   const [priceRange, setPriceRange] = useState<[number, number]>([0, 1000]);
+  const [statusEffectFilters, setStatusEffectFilters] = useState<string[]>([]);
 
   // Add a notification
   const addNotification = (message: string, type: "success" | "error") => {
@@ -188,7 +189,7 @@ export default function Marketplace({
     // Find if item exists in NPC shop to determine original price
     const shopItem = npcShopItems.find(item => item.id === itemId);
     if (shopItem) {
-      currency = shopItem.currency;
+      currency = shopItem.currency as "gold" | "gems";
       sellPrice = Math.floor(shopItem.price * 0.5); // 50% of original price
     } else {
       // Default sell values if not in shop
@@ -313,6 +314,18 @@ export default function Marketplace({
             if (!hasMatchingStat) return false;
           }
           
+          // Apply status effect filters
+          if (statusEffectFilters.length > 0) {
+            // Check if the item has a special ability that mentions any of the selected status effects
+            if (!gameItem.specialAbility) return false;
+            
+            const hasMatchingEffect = statusEffectFilters.some(effect => 
+              gameItem.specialAbility?.toLowerCase().includes(effect)
+            );
+            
+            if (!hasMatchingEffect) return false;
+          }
+          
           return true;
         })
       : playerMarketItems.filter(item => {
@@ -328,6 +341,18 @@ export default function Marketplace({
           // Apply price filters
           if (item.currency === "gold" && (item.price < filter.minPrice || item.price > filter.maxPrice)) return false;
           if (filter.currency && item.currency !== filter.currency) return false;
+          
+          // Apply status effect filters
+          if (statusEffectFilters.length > 0) {
+            // Check if the item has a special ability that mentions any of the selected status effects
+            if (!gameItem.specialAbility) return false;
+            
+            const hasMatchingEffect = statusEffectFilters.some(effect => 
+              gameItem.specialAbility?.toLowerCase().includes(effect)
+            );
+            
+            if (!hasMatchingEffect) return false;
+          }
           
           return true;
         });
@@ -359,7 +384,7 @@ export default function Marketplace({
           return 0;
       }
     });
-  }, [selectedTab, npcItems, playerMarketItems, filter, sortKey, sortOrder, statsFilter]);
+  }, [selectedTab, npcItems, playerMarketItems, filter, sortKey, sortOrder, statsFilter, statusEffectFilters]);
 
   // Enhanced renderFilterControls function with more filtering options
   const renderFilterControls = () => (
@@ -402,22 +427,58 @@ export default function Marketplace({
         </Select>
       </div>
       
-      {/* Price range filter with dual thumb slider */}
+      {/* Currency filters */}
       <div>
-        <label className="text-sm font-medium">Price Range</label>
+        <label className="text-sm font-medium mb-2 block">Currency</label>
+        <div className="flex flex-wrap gap-2">
+          <label className="flex items-center space-x-2 text-sm">
+            <input 
+              type="checkbox" 
+              checked={filter.currency === "" || filter.currency === "gold"} 
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setFilter({...filter, currency: filter.currency === "gems" ? "" : "gold"});
+                } else {
+                  setFilter({...filter, currency: "gems"});
+                }
+              }}
+              className="rounded border-gray-700 bg-gray-800 text-amber-500"
+            />
+            <span>Gold</span>
+          </label>
+          <label className="flex items-center space-x-2 text-sm">
+            <input 
+              type="checkbox" 
+              checked={filter.currency === "" || filter.currency === "gems"} 
+              onChange={(e) => {
+                if (e.target.checked) {
+                  setFilter({...filter, currency: filter.currency === "gold" ? "" : "gems"});
+                } else {
+                  setFilter({...filter, currency: "gold"});
+                }
+              }}
+              className="rounded border-gray-700 bg-gray-800 text-amber-500"
+            />
+            <span>Gems</span>
+          </label>
+        </div>
+      </div>
+      
+      {/* Gold price range filter with dual thumb slider */}
+      <div>
+        <label className="text-sm font-medium">Gold Price Range</label>
         <div className="pt-4 pb-2">
           <Slider 
-            defaultValue={[0, 1000]} 
-            max={1000} 
-            step={10}
+            defaultValue={[0, 5000]} 
+            max={5000} 
+            step={50}
             onValueChange={(values) => {
-              setPriceRange(values as [number, number]);
               setFilter({...filter, minPrice: values[0], maxPrice: values[1]});
             }}
           />
           <div className="flex justify-between text-xs text-gray-400 mt-1">
-            <span>{priceRange[0]} {filter.currency || "Gold"}</span>
-            <span>{priceRange[1]} {filter.currency || "Gold"}</span>
+            <span>{filter.minPrice} Gold</span>
+            <span>{filter.maxPrice} Gold</span>
           </div>
         </div>
       </div>
@@ -446,19 +507,55 @@ export default function Marketplace({
         </div>
       </div>
       
-      {/* Currency filter */}
+      {/* Stat range sliders - only show for selected stats */}
+      {statsFilter.length > 0 && (
+        <div className="space-y-3 mt-2 p-3 bg-gray-800 rounded-md">
+          <h4 className="text-sm font-medium">Stat Ranges</h4>
+          {statsFilter.map(stat => (
+            <div key={stat} className="space-y-1">
+              <label className="text-xs text-gray-400">{stat}: {filter.stats[stat.toLowerCase().replace(' ', '')] ? filter.stats[stat.toLowerCase().replace(' ', '')][0] : 0} - {filter.stats[stat.toLowerCase().replace(' ', '')] ? filter.stats[stat.toLowerCase().replace(' ', '')][1] : 100}</label>
+              <Slider 
+                defaultValue={[0, 100]} 
+                max={100} 
+                step={1}
+                onValueChange={(values) => {
+                  const statKey = stat.toLowerCase().replace(' ', '');
+                  setFilter({
+                    ...filter, 
+                    stats: {
+                      ...filter.stats,
+                      [statKey]: [values[0], values[1]]
+                    }
+                  });
+                }}
+              />
+            </div>
+          ))}
+        </div>
+      )}
+      
+      {/* Status Effect filters */}
       <div>
-        <label className="text-sm font-medium">Currency</label>
-        <Select value={filter.currency || "all"} onValueChange={(value) => setFilter({...filter, currency: value === "all" ? "" : value})}>
-          <SelectTrigger>
-            <SelectValue placeholder="All Currencies" />
-          </SelectTrigger>
-          <SelectContent>
-            <SelectItem value="all">All Currencies</SelectItem>
-            <SelectItem value="gold">Gold</SelectItem>
-            <SelectItem value="gems">Gems</SelectItem>
-          </SelectContent>
-        </Select>
+        <label className="text-sm font-medium mb-2 block">Status Effects</label>
+        <div className="grid grid-cols-2 gap-2">
+          {["poison", "bleed", "weakness", "burn", "stun"].map(effect => (
+            <label key={effect} className="flex items-center space-x-2 text-sm">
+              <input 
+                type="checkbox" 
+                checked={statusEffectFilters.includes(effect)} 
+                onChange={(e) => {
+                  if (e.target.checked) {
+                    setStatusEffectFilters([...statusEffectFilters, effect]);
+                  } else {
+                    setStatusEffectFilters(statusEffectFilters.filter(s => s !== effect));
+                  }
+                }}
+                className="rounded border-gray-700 bg-gray-800 text-amber-500"
+              />
+              <span className="capitalize">{effect}</span>
+            </label>
+          ))}
+        </div>
       </div>
       
       {/* Clear filters button */}
@@ -471,7 +568,7 @@ export default function Marketplace({
             rarity: "",
             currency: "",
             minPrice: 0,
-            maxPrice: 1000,
+            maxPrice: 5000,
             showEquippableOnly: false,
             showWithStatsOnly: false,
             stats: {
@@ -485,7 +582,7 @@ export default function Marketplace({
             }
           });
           setStatsFilter([]);
-          setPriceRange([0, 1000]);
+          setStatusEffectFilters([]);
         }}
         className="w-full mt-2"
       >
@@ -537,16 +634,12 @@ export default function Marketplace({
           <CardContent className="py-2">
             <p className="text-sm text-gray-300">{item.description}</p>
             
-            {item.stats && Object.keys(item.stats).length > 0 && (
-              <div className="mt-2 space-y-1">
-                {Object.entries(item.stats).map(([stat, value]) => (
-                  <div key={stat} className="flex justify-between text-xs">
-                    <span>{stat}</span>
-                    <span className={value > 0 ? "text-green-400" : "text-red-400"}>
-                      {value > 0 ? `+${value}` : value}
-                    </span>
-                  </div>
-                ))}
+            {/* Show basic item info but not detailed stats comparison */}
+            {item.equippable && item.slot && (
+              <div className="mt-2">
+                <Badge variant="outline" className="text-xs">
+                  {item.slot.charAt(0).toUpperCase() + item.slot.slice(1)}
+                </Badge>
               </div>
             )}
             
@@ -601,22 +694,57 @@ export default function Marketplace({
           </CardFooter>
         </Card>
         
-        {/* Stat comparison overlay */}
-        {item.equippable && comparisonItem && (
-          <div className="absolute inset-0 bg-black bg-opacity-90 flex flex-col justify-center items-center text-sm text-white p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg">
-            <h4 className="text-amber-400 font-medium mb-2">Stat Comparison</h4>
-            {Object.entries(item.stats || {}).map(([stat, value]) => {
-              const equippedValue = comparisonItem?.stats?.[stat] || 0;
-              const diff = value - equippedValue;
-              const colorClass = diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-gray-400';
-              return (
-                <div key={stat} className="flex justify-between w-full">
-                  <span>{stat}:</span>
-                  <span className={colorClass}>
-                    {equippedValue} → {value} ({diff > 0 ? `+${diff}` : diff})
-                  </span>
+        {/* Stat comparison overlay - ONLY shown on hover */}
+        {item.stats && Object.keys(item.stats).length > 0 && (
+          <div className="absolute inset-0 bg-black bg-opacity-90 flex flex-col justify-center items-center text-sm text-white p-4 opacity-0 group-hover:opacity-100 transition-opacity duration-200 rounded-lg z-50">
+            <h4 className="text-amber-400 font-medium mb-2">Item Stats</h4>
+            
+            {/* Show equipped item info if there is one */}
+            {comparisonItem ? (
+              <div className="w-full mb-3 pb-2 border-b border-gray-700">
+                <div className="text-center mb-1">
+                  <span className="text-gray-400">Currently Equipped:</span>
+                  <span className="text-blue-400 ml-1 font-medium">{comparisonItem.name}</span>
                 </div>
-              );
+              </div>
+            ) : item.equippable && item.slot ? (
+              <div className="w-full mb-3 pb-2 border-b border-gray-700">
+                <div className="text-center mb-1">
+                  <span className="text-gray-400">Currently Equipped:</span>
+                  <span className="text-gray-500 ml-1 italic">Nothing</span>
+                </div>
+              </div>
+            ) : null}
+            
+            {/* Always show the item's stats */}
+            {Object.entries(item.stats).map(([stat, value]) => {
+              // If there's a comparison item, show the difference
+              if (comparisonItem && comparisonItem.stats && stat in comparisonItem.stats) {
+                const equippedValue = comparisonItem.stats[stat];
+                const diff = value - equippedValue;
+                const colorClass = diff > 0 ? 'text-green-400' : diff < 0 ? 'text-red-400' : 'text-gray-400';
+                
+                return (
+                  <div key={stat} className="flex justify-between w-full">
+                    <span>{stat}:</span>
+                    <span className={colorClass}>
+                      <span className="text-gray-400">{equippedValue}</span>
+                      <span className="mx-1">→</span>
+                      <span>{value}</span>
+                      <span className="ml-1">({diff > 0 ? `+${diff}` : diff})</span>
+                    </span>
+                  </div>
+                );
+              } 
+              // Otherwise just show the stat
+              else {
+                return (
+                  <div key={stat} className="flex justify-between w-full">
+                    <span>{stat}:</span>
+                    <span className="text-blue-400">{value > 0 ? `+${value}` : value}</span>
+                  </div>
+                );
+              }
             })}
             
             {/* Show stats that only exist in the equipped item */}
@@ -626,7 +754,10 @@ export default function Marketplace({
                 <div key={stat} className="flex justify-between w-full">
                   <span>{stat}:</span>
                   <span className="text-red-400">
-                    {value} → 0 (-{value})
+                    <span className="text-gray-400">{value}</span>
+                    <span className="mx-1">→</span>
+                    <span>0</span>
+                    <span className="ml-1">(-{value})</span>
                   </span>
                 </div>
               );
@@ -715,7 +846,7 @@ export default function Marketplace({
                         {renderItemCard(
                           item.id, 
                           item.price, 
-                          item.currency, 
+                          item.currency as "gold" | "gems", 
                           'stock' in item ? item.stock : 1, 
                           "buy"
                         )}
@@ -746,7 +877,7 @@ export default function Marketplace({
                         // Find if item exists in NPC shop to determine original price
                         const shopItem = npcShopItems.find(i => i.id === item.id);
                         if (shopItem) {
-                          currency = shopItem.currency;
+                          currency = shopItem.currency as "gold" | "gems";
                           sellPrice = Math.floor(shopItem.price * 0.5); // 50% of original price
                         } else {
                           // Default sell values if not in shop
