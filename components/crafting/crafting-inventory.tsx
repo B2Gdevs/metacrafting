@@ -50,16 +50,34 @@ const PatternVisual = ({ pattern }: { pattern: string }) => {
   // Split multiple patterns
   const patterns = pattern.includes(",") ? pattern.split(",") : [pattern];
   
+  // Define pattern colors and icons
+  const patternInfo: Record<string, { color: string, icon: string }> = {
+    lShape: { color: "bg-purple-500", icon: "L" },
+    square: { color: "bg-blue-500", icon: "■" },
+    cross: { color: "bg-green-500", icon: "✚" },
+    triangle: { color: "bg-amber-500", icon: "▲" },
+    diagonal: { color: "bg-red-500", icon: "╲" },
+    linear: { color: "bg-cyan-500", icon: "—" },
+    circle: { color: "bg-pink-500", icon: "○" }
+  };
+  
   return (
-    <div className="space-y-1">
-      {patterns.map((p, index) => (
-        <div key={index} className="flex items-center">
-          <div className="w-2 h-2 rounded-full bg-blue-500 mr-2"></div>
-          <span className="text-xs text-blue-400">
-            {p.charAt(0).toUpperCase() + p.slice(1).replace(/([A-Z])/g, ' $1')}
-          </span>
-        </div>
-      ))}
+    <div className="flex flex-wrap gap-1">
+      {patterns.map((p, index) => {
+        const info = patternInfo[p] || { color: "bg-gray-500", icon: "?" };
+        const textColor = p === "amber" ? "text-amber-400" : `text-${info.color.split('-')[1]}-400`;
+        
+        return (
+          <div key={index} className="flex items-center bg-gray-800/70 rounded px-2 py-1">
+            <div className={`w-4 h-4 rounded-sm ${info.color} mr-1 flex items-center justify-center text-xs font-bold text-white`}>
+              {info.icon}
+            </div>
+            <span className={`text-xs ${textColor}`}>
+              {p.charAt(0).toUpperCase() + p.slice(1).replace(/([A-Z])/g, ' $1')}
+            </span>
+          </div>
+        );
+      })}
     </div>
   );
 };
@@ -177,7 +195,11 @@ export default function CraftingInventory({
         
         {/* Inventory Grid */}
         <div 
-          className="grid grid-cols-6 gap-4 max-h-[400px] overflow-y-auto p-4 bg-gray-800/50 rounded-lg border border-gray-700"
+          className="grid grid-cols-4 gap-4 max-h-[500px] overflow-y-auto p-4 bg-gray-800/50 rounded-lg border border-gray-700"
+          style={{ 
+            backgroundImage: 'linear-gradient(to right, #1f2937 1px, transparent 1px), linear-gradient(to bottom, #1f2937 1px, transparent 1px)',
+            backgroundSize: 'calc(100% / 4) 100%'
+          }}
           onDragOver={(e) => {
             e.preventDefault()
             e.stopPropagation()
@@ -188,63 +210,84 @@ export default function CraftingInventory({
           }}
         >
           {filteredInventory.length > 0 ? (
-            filteredInventory.map((item, index) => {
-              const gameItem = gameItems[item.id];
-              if (!gameItem) return null;
-              
-              return (
-                <div key={`${item.id}-${index}`} className="flex flex-col items-center mb-3 p-1">
-                  <TooltipProvider>
-                    <Tooltip>
-                      <TooltipTrigger asChild>
-                        <div className="p-1 bg-gray-900/30 rounded">
-                          <ItemSlot 
-                            item={gameItem} 
-                            onDragStart={() => onDragStart(item.id, "inventory", index)}
-                            quantity={item.quantity}
-                            size="small"
-                            disableTooltip={true}
-                          />
-                        </div>
-                      </TooltipTrigger>
-                      <TooltipContent side="top" className="w-64 p-3">
-                        <div className="space-y-2">
-                          <p className="font-medium text-lg">{gameItem.name}</p>
-                          <p className="text-sm text-gray-400">{gameItem.description}</p>
-                          
-                          {gameItem.stats && Object.keys(gameItem.stats).length > 0 && (
-                            <div className="mt-2">
-                              <p className="text-xs font-medium text-gray-400 mb-1">Stats:</p>
-                              <div className="space-y-1">
-                                {Object.entries(gameItem.stats).map(([stat, value]) => (
-                                  <div key={stat} className="flex justify-between text-xs">
-                                    <span className="text-gray-400">{stat}</span>
-                                    <span className="text-blue-400">+{value}</span>
-                                  </div>
-                                ))}
+            <>
+              {/* Create a grid of empty slots */}
+              {Array.from({ length: 24 }).map((_, slotIndex) => {
+                const item = filteredInventory[slotIndex];
+                
+                // If there's an item for this slot, render it
+                if (item) {
+                  const gameItem = gameItems[item.id];
+                  if (!gameItem) return (
+                    <div key={`empty-${slotIndex}`} className="aspect-square flex items-center justify-center p-2">
+                      <div className="w-full h-full bg-gray-900/30 rounded-md"></div>
+                    </div>
+                  );
+                  
+                  return (
+                    <TooltipProvider key={`${item.id}-${slotIndex}`}>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div className="aspect-square flex items-center justify-center p-2">
+                            <div className="w-full h-full bg-gray-900/30 rounded-md hover:bg-gray-800/50 transition-colors flex items-center justify-center">
+                              <ItemSlot 
+                                item={gameItem} 
+                                onDragStart={() => onDragStart(item.id, "inventory", slotIndex)}
+                                quantity={item.quantity}
+                                size="normal"
+                                disableTooltip={true}
+                              />
+                            </div>
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="w-72 p-4">
+                          <div className="space-y-3">
+                            <div>
+                              <p className="font-medium text-lg">{gameItem.name}</p>
+                              <p className="text-sm text-gray-400">{gameItem.description}</p>
+                            </div>
+                            
+                            {gameItem.stats && Object.keys(gameItem.stats).length > 0 && (
+                              <div className="mt-2 bg-gray-900/50 p-2 rounded">
+                                <p className="text-xs font-medium text-gray-400 mb-1">Stats:</p>
+                                <div className="space-y-1">
+                                  {Object.entries(gameItem.stats).map(([stat, value]) => (
+                                    <div key={stat} className="flex justify-between text-xs">
+                                      <span className="text-gray-400">{stat}</span>
+                                      <span className="text-blue-400">+{value}</span>
+                                    </div>
+                                  ))}
+                                </div>
                               </div>
-                            </div>
-                          )}
-                          
-                          {item.craftingPattern && item.craftingPattern !== "none" && (
-                            <div className="mt-2">
-                              <p className="text-xs font-medium text-gray-400 mb-1">Crafting Patterns:</p>
-                              <PatternVisual pattern={item.craftingPattern} />
-                            </div>
-                          )}
-                          
-                          {!item.craftingPattern && (
-                            <p className="text-xs italic text-gray-500 mt-2">Not crafted by you</p>
-                          )}
-                        </div>
-                      </TooltipContent>
-                    </Tooltip>
-                  </TooltipProvider>
-                </div>
-              );
-            })
+                            )}
+                            
+                            {item.craftingPattern && item.craftingPattern !== "none" && (
+                              <div className="mt-2 bg-gray-900/50 p-2 rounded">
+                                <p className="text-xs font-medium text-gray-400 mb-1">Crafting Patterns:</p>
+                                <PatternVisual pattern={item.craftingPattern} />
+                              </div>
+                            )}
+                            
+                            {!item.craftingPattern && (
+                              <p className="text-xs italic text-gray-500 mt-2">Not crafted by you</p>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
+                  );
+                }
+                
+                // Otherwise render an empty slot
+                return (
+                  <div key={`empty-${slotIndex}`} className="aspect-square flex items-center justify-center p-2">
+                    <div className="w-full h-full bg-gray-900/30 rounded-md"></div>
+                  </div>
+                );
+              })}
+            </>
           ) : (
-            <div className="col-span-6 py-8 text-center text-gray-500">
+            <div className="col-span-4 py-12 text-center text-gray-500">
               No items match the current filters
             </div>
           )}

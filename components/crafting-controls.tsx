@@ -30,9 +30,8 @@ export default function CraftingControls({
     <div className="bg-gray-800 rounded-lg border border-gray-700 p-4 space-y-6">
       <div className="flex justify-between items-center">
         <div className="text-sm font-medium text-blue-400">
-          Magic Cost: {currentMagicCost} MP
-          <span className={`ml-2 ${!hasEnoughMagic ? 'text-red-400' : 'text-gray-400'}`}>
-            ({magicPoints}/{maxMagicPoints})
+          <span className={`${!hasEnoughMagic ? 'text-red-400' : 'text-gray-400'}`}>
+            Magic Points: {magicPoints}/{maxMagicPoints}
           </span>
         </div>
       </div>
