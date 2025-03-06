@@ -42,6 +42,7 @@ interface ItemSlotProps {
   isOver?: boolean
   onRemove?: () => void
   size?: "normal" | "small"
+  disableTooltip?: boolean
 }
 
 export default function ItemSlot({ 
@@ -55,9 +56,10 @@ export default function ItemSlot({
   label,
   isOver,
   onRemove,
-  size = "normal"
+  size = "normal",
+  disableTooltip = false
 }: ItemSlotProps) {
-  const [showTooltip, setShowTooltip] = useState(false)
+  const [showTooltip, setShowTooltip] = useState(false);
 
   // If item is a string ID or null, render a placeholder
   if (!item || typeof item === 'string') {
@@ -89,8 +91,19 @@ export default function ItemSlot({
   }
 
   const handleDragStart = (e: React.DragEvent) => {
-    setShowTooltip(false)
-    onDragStart()
+    setShowTooltip(false);
+    
+    // Set the data transfer with the item ID
+    if (typeof item !== 'string' && item) {
+      e.dataTransfer.setData("text/plain", item.id);
+      e.dataTransfer.setData("application/json", JSON.stringify({
+        id: item.id,
+        type: "INVENTORY_ITEM"
+      }));
+      e.dataTransfer.effectAllowed = "move";
+    }
+    
+    onDragStart();
 
     // Create a custom drag image to control the size
     if (e.target instanceof HTMLElement) {
@@ -121,97 +134,187 @@ export default function ItemSlot({
         }, 100);
       }
     }
-  }
+  };
 
   const handleDragEnd = () => {
-    setShowTooltip(false)
-  }
+    setShowTooltip(false);
+  };
 
   const getTypeColor = (type: ItemType) => {
     switch (type) {
       case "weapon":
-        return "bg-red-900/50 text-red-400 border-red-900"
+        return "bg-red-900/50 text-red-400 border-red-900";
       case "armor":
-        return "bg-blue-900/50 text-blue-400 border-blue-900"
+        return "bg-blue-900/50 text-blue-400 border-blue-900";
       case "potion":
-        return "bg-green-900/50 text-green-400 border-green-900"
+        return "bg-green-900/50 text-green-400 border-green-900";
       case "tool":
-        return "bg-yellow-900/50 text-yellow-400 border-yellow-900"
+        return "bg-yellow-900/50 text-yellow-400 border-yellow-900";
       case "magical":
-        return "bg-purple-900/50 text-purple-400 border-purple-900"
+        return "bg-purple-900/50 text-purple-400 border-purple-900";
       case "accessory":
-        return "bg-amber-900/50 text-amber-400 border-amber-900"
+        return "bg-amber-900/50 text-amber-400 border-amber-900";
       default:
-        return "bg-gray-900/50 text-gray-400 border-gray-700"
+        return "bg-gray-900/50 text-gray-400 border-gray-700";
     }
-  }
+  };
 
   const getRarityColor = (rarity?: ItemRarity) => {
     switch (rarity) {
       case "uncommon":
-        return "text-green-400"
+        return "text-green-400";
       case "rare":
-        return "text-blue-400"
+        return "text-blue-400";
       case "epic":
-        return "text-purple-400"
+        return "text-purple-400";
       case "legendary":
-        return "text-amber-400"
+        return "text-amber-400";
       case "mythic":
-        return "text-red-400"
+        return "text-red-400";
       default:
-        return "text-gray-300"
+        return "text-gray-300";
     }
+  };
+
+  const getRarityGlow = (rarity?: ItemRarity) => {
+    switch (rarity) {
+      case "uncommon":
+        return "glow-green-400";
+      case "rare":
+        return "glow-blue-400";
+      case "epic":
+        return "glow-purple-400";
+      case "legendary":
+        return "glow-amber-400";
+      case "mythic":
+        return "glow-red-400";
+      default:
+        return "";
+    }
+  };
+
+  // Render the item with tooltip or without based on disableTooltip prop
+  if (disableTooltip) {
+    return (
+      <div 
+        className={`
+          relative 
+          ${size === "small" ? "w-12 h-12" : "w-16 h-16"} 
+          bg-gray-800/50 
+          rounded 
+          border 
+          ${isOver ? 'border-green-500' : 'border-gray-700'} 
+          flex 
+          flex-col 
+          items-center 
+          justify-center
+          ${onClick ? 'cursor-pointer' : !!onDragStart ? 'cursor-grab' : ''}
+          ${isEquipped ? 'ring-2 ring-amber-500/50' : ''}
+        `}
+        draggable={!!onDragStart}
+        onDragStart={handleDragStart}
+        onDragEnd={handleDragEnd}
+        onClick={onClick}
+      >
+        <div className="relative w-full h-full flex items-center justify-center">
+          <div 
+            className={`
+              w-full h-full 
+              flex items-center justify-center 
+              ${item.rarity && item.rarity !== 'common' ? getRarityGlow(item.rarity) : ''}
+            `}
+          >
+            {item.image ? (
+              <img 
+                src={item.image} 
+                alt={item.name} 
+                className="max-w-full max-h-full object-contain" 
+              />
+            ) : (
+              <div className="text-xs text-gray-400">{item.name}</div>
+            )}
+          </div>
+          {showBadge && quantity > 1 && (
+            <div className="absolute bottom-0 right-0 bg-gray-900/80 rounded-tl px-1 text-xs font-medium">
+              {quantity}
+            </div>
+          )}
+          {isEquipped && (
+            <div className="absolute top-0 right-0 bg-amber-900 rounded-bl px-1 text-xs font-medium text-amber-300">
+              E
+            </div>
+          )}
+          {(item.rarity && item.rarity !== "common") && (
+            <div className={`absolute top-0 left-0 rounded-br px-1 text-xs font-medium ${getRarityColor(item.rarity)} bg-gray-900/80`}>
+              {item.rarity.charAt(0).toUpperCase()}
+            </div>
+          )}
+        </div>
+      </div>
+    );
   }
 
+  // With tooltip
   return (
     <TooltipProvider>
       <Tooltip open={showTooltip}>
         <TooltipTrigger asChild>
-          <div
-            className={`relative w-full aspect-square bg-gray-800 rounded border ${isEquipped ? 'border-amber-500' : 'border-gray-700'} flex items-center justify-center cursor-grab hover:border-gray-500 transition-colors`}
-            draggable={!!item}
-            onDragStart={(e) => {
-              if (item) {
-                // Set the data transfer with the item ID
-                const itemId = typeof item === 'string' ? item : item.id;
-                e.dataTransfer.setData("text/plain", itemId);
-                e.dataTransfer.setData("application/json", JSON.stringify({
-                  id: itemId,
-                  type: "INVENTORY_ITEM"
-                }));
-                e.dataTransfer.effectAllowed = "move";
-                handleDragStart(e);
-              }
-            }}
+          <div 
+            className={`
+              relative 
+              ${size === "small" ? "w-12 h-12" : "w-16 h-16"} 
+              bg-gray-800/50 
+              rounded 
+              border 
+              ${isOver ? 'border-green-500' : 'border-gray-700'} 
+              flex 
+              flex-col 
+              items-center 
+              justify-center
+              ${onClick ? 'cursor-pointer' : !!onDragStart ? 'cursor-grab' : ''}
+              ${isEquipped ? 'ring-2 ring-amber-500/50' : ''}
+            `}
+            draggable={!!onDragStart}
+            onDragStart={handleDragStart}
             onDragEnd={handleDragEnd}
-            onClick={onClick || onEquip}
+            onClick={onClick}
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
           >
-            {item ? (
-              <>
-                <img src={typeof item === 'string' ? gameItems[item]?.image : item.image} 
-                     alt={typeof item === 'string' ? gameItems[item]?.name : item.name} 
-                     className="w-10 h-10 object-contain" />
-                {showBadge && quantity > 1 && (
-                  <div className="absolute bottom-0 right-0 bg-gray-900 rounded-tl px-1 text-xs font-medium">
-                    {quantity}
-                  </div>
+            <div className="relative w-full h-full flex items-center justify-center">
+              <div 
+                className={`
+                  w-full h-full 
+                  flex items-center justify-center 
+                  ${item.rarity && item.rarity !== 'common' ? getRarityGlow(item.rarity) : ''}
+                `}
+              >
+                {item.image ? (
+                  <img 
+                    src={item.image} 
+                    alt={item.name} 
+                    className="max-w-full max-h-full object-contain" 
+                  />
+                ) : (
+                  <div className="text-xs text-gray-400">{item.name}</div>
                 )}
-                {isEquipped && (
-                  <div className="absolute top-0 right-0 bg-amber-900 rounded-bl px-1 text-xs font-medium text-amber-300">
-                    E
-                  </div>
-                )}
-                {(typeof item !== 'string' && item.rarity && item.rarity !== "common") && (
-                  <div className={`absolute top-0 left-0 rounded-br px-1 text-xs font-medium ${getRarityColor(item.rarity)} bg-gray-900/80`}>
-                    {item.rarity.charAt(0).toUpperCase()}
-                  </div>
-                )}
-              </>
-            ) : (
-              <div className="text-gray-500 text-xs">Empty</div>
-            )}
+              </div>
+              {showBadge && quantity > 1 && (
+                <div className="absolute bottom-0 right-0 bg-gray-900/80 rounded-tl px-1 text-xs font-medium">
+                  {quantity}
+                </div>
+              )}
+              {isEquipped && (
+                <div className="absolute top-0 right-0 bg-amber-900 rounded-bl px-1 text-xs font-medium text-amber-300">
+                  E
+                </div>
+              )}
+              {(item.rarity && item.rarity !== "common") && (
+                <div className={`absolute top-0 left-0 rounded-br px-1 text-xs font-medium ${getRarityColor(item.rarity)} bg-gray-900/80`}>
+                  {item.rarity.charAt(0).toUpperCase()}
+                </div>
+              )}
+            </div>
           </div>
         </TooltipTrigger>
         <TooltipContent side="right" className="w-64 p-0 overflow-hidden">
@@ -248,38 +351,47 @@ export default function ItemSlot({
             
             {item.stats && Object.keys(item.stats).length > 0 && (
               <div className="space-y-1 mb-2">
+                <div className="text-xs font-medium text-gray-400">Stats:</div>
                 {Object.entries(item.stats).map(([stat, value]) => (
-                  <div key={stat} className="flex justify-between text-sm">
+                  <div key={stat} className="flex justify-between text-xs">
                     <span className="text-gray-400">{stat}</span>
-                    <span className={value > 0 ? "text-green-400" : "text-red-400"}>
-                      {value > 0 ? "+" : ""}{value}
-                    </span>
+                    <span className="text-blue-400">+{value}</span>
                   </div>
                 ))}
               </div>
             )}
             
             {item.specialAbility && (
-              <div className="text-sm text-purple-400 mt-2">
-                <span className="font-medium">Special:</span> {item.specialAbility}
-              </div>
-            )}
-            
-            {item.requiredLevel && (
-              <div className="text-sm text-gray-400 mt-2">
-                Requires Level {item.requiredLevel}
+              <div className="space-y-1 mb-2">
+                <div className="text-xs font-medium text-gray-400">Special Ability:</div>
+                <div className="text-xs text-purple-400">{item.specialAbility}</div>
               </div>
             )}
             
             {item.value && (
-              <div className="text-sm text-amber-400 mt-2">
-                Value: {item.value} gold
+              <div className="flex justify-between text-xs mt-2">
+                <span className="text-gray-400">Value:</span>
+                <span className="text-amber-400">{item.value} gold</span>
+              </div>
+            )}
+            
+            {onEquip && (
+              <div className="mt-3">
+                <button 
+                  className="w-full py-1 px-2 text-xs bg-amber-900/50 hover:bg-amber-800/50 text-amber-400 rounded border border-amber-900/80"
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    onEquip();
+                  }}
+                >
+                  {isEquipped ? 'Unequip' : 'Equip'}
+                </button>
               </div>
             )}
           </div>
         </TooltipContent>
       </Tooltip>
     </TooltipProvider>
-  )
+  );
 }
 

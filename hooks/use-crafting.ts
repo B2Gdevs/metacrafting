@@ -245,16 +245,33 @@ export const useCrafting = ({
       newGrid[dragSourceIndex] = null;
     }
     
+    // If the target cell already has an item, return it to inventory
+    if (newGrid[index] !== null) {
+      const existingItem = newGrid[index];
+      // Only return to inventory if we're moving within the grid
+      if (dragSource === "grid" && existingItem) {
+        const updatedInventory = [...inventory];
+        const inventoryItem = updatedInventory.find(item => item.id === existingItem);
+        
+        if (inventoryItem) {
+          inventoryItem.quantity += 1;
+        } else {
+          updatedInventory.push({ id: existingItem, quantity: 1 });
+        }
+        
+        // Update character with new inventory
+        onUpdateCharacter(
+          character,
+          updatedInventory
+        );
+      }
+    }
+    
     // Place the item in the target cell
     newGrid[index] = draggedItem;
     
     // Update the grid
     setGrid(newGrid);
-    
-    // Reset drag state
-    setDraggedItem(null);
-    setDragSource(null);
-    setDragSourceIndex(null);
     
     // If dragging from inventory, update inventory
     if (dragSource === "inventory") {
@@ -276,6 +293,11 @@ export const useCrafting = ({
         );
       }
     }
+    
+    // Reset drag state
+    setDraggedItem(null);
+    setDragSource(null);
+    setDragSourceIndex(null);
   }, [draggedItem, dragSource, dragSourceIndex, grid, inventory, character, onUpdateCharacter]);
   
   const handleDropOnInventory = useCallback(() => {
@@ -317,23 +339,6 @@ export const useCrafting = ({
     }));
   }, []);
   
-  // Function to determine the pattern used in the grid
-  const getGridPattern = useCallback((grid: (string | null)[]) => {
-    // Check for different patterns
-    const patterns = [
-      { name: "linear", check: checkLinearPattern(grid) },
-      { name: "diagonal", check: checkDiagonalPattern(grid) },
-      { name: "square", check: checkSquarePattern(grid) },
-      { name: "cross", check: checkCrossPattern(grid) },
-      { name: "triangle", check: checkTrianglePattern(grid) },
-      { name: "circle", check: checkCirclePattern(grid) }
-    ];
-    
-    // Return the first matching pattern or "none"
-    const matchedPattern = patterns.find(p => p.check);
-    return matchedPattern ? matchedPattern.name : "none";
-  }, []);
-
   // Pattern checking functions
   const checkLinearPattern = useCallback((grid: (string | null)[]) => {
     // Check horizontal lines
@@ -411,6 +416,79 @@ export const useCrafting = ({
       grid[5] !== null && grid[7] !== null;
   }, []);
   
+  // New L-shape pattern check
+  const checkLShapePattern = useCallback((grid: (string | null)[]) => {
+    // Define the possible L shapes with their indices
+    const lShapes = [
+      // L shape pointing right-down
+      [[0, 3, 6, 7]],
+      // L shape pointing right-up
+      [[6, 3, 0, 1]],
+      // L shape pointing left-down
+      [[2, 5, 8, 7]],
+      // L shape pointing left-up
+      [[8, 5, 2, 1]]
+    ];
+    
+    // Check each L shape configuration
+    for (const shapeGroup of lShapes) {
+      for (const shape of shapeGroup) {
+        // Check if all cells in this shape are filled
+        const allFilled = shape.every(idx => grid[idx] !== null);
+        if (allFilled) {
+          return true;
+        }
+      }
+    }
+    
+    return false;
+  }, []);
+
+  // Function to determine the pattern used in the grid
+  const getGridPattern = useCallback((grid: (string | null)[]) => {
+    // Log the grid for debugging
+    console.log("Current grid for pattern detection:", grid);
+    
+    // Check for all patterns and return all that match
+    const patterns = [];
+    
+    if (checkLShapePattern(grid)) patterns.push("lShape");
+    if (checkSquarePattern(grid)) patterns.push("square");
+    if (checkCrossPattern(grid)) patterns.push("cross");
+    if (checkTrianglePattern(grid)) patterns.push("triangle");
+    if (checkDiagonalPattern(grid)) patterns.push("diagonal");
+    if (checkLinearPattern(grid)) patterns.push("linear");
+    if (checkCirclePattern(grid)) patterns.push("circle");
+    
+    // Return all detected patterns as a comma-separated string, or "none" if none detected
+    return patterns.length > 0 ? patterns.join(",") : "none";
+  }, [checkLShapePattern, checkSquarePattern, checkCrossPattern, checkTrianglePattern, checkDiagonalPattern, checkLinearPattern, checkCirclePattern]);
+  
+  // Helper function to get a human-readable pattern name
+  const getPatternName = (pattern?: string): string => {
+    if (!pattern || pattern === "none") return "no";
+    
+    // Handle multiple patterns
+    if (pattern.includes(",")) {
+      const patterns = pattern.split(",");
+      // Format each pattern and join with "and"
+      const formattedPatterns = patterns.map(p => 
+        p.charAt(0).toUpperCase() + p.slice(1).replace(/([A-Z])/g, ' $1').toLowerCase()
+      );
+      
+      if (formattedPatterns.length === 2) {
+        return `${formattedPatterns[0]} and ${formattedPatterns[1]}`;
+      } else {
+        const lastPattern = formattedPatterns.pop();
+        return `${formattedPatterns.join(", ")} and ${lastPattern}`;
+      }
+    }
+    
+    // Single pattern
+    return pattern.charAt(0).toUpperCase() + 
+      pattern.slice(1).replace(/([A-Z])/g, ' $1').toLowerCase();
+  };
+  
   const handleCraft = useCallback(() => {
     // Try to find a matching recipe if none is selected
     const recipeToUse = selectedRecipe || findMatchingRecipe();
@@ -445,28 +523,19 @@ export const useCrafting = ({
       return;
     }
     
-    // Always consume resources regardless of success or failure
+    // Get the pattern used in crafting BEFORE clearing the grid
+    const patternUsed = getGridPattern(grid);
+    console.log("Pattern used for crafting:", patternUsed); // Debug log
+    
     // Create a copy of the inventory to work with
     const updatedInventory = [...inventory];
     
-    // Remove the items from the grid from the inventory
-    const gridItems = grid.filter(item => item !== null) as string[];
-    gridItems.forEach(itemId => {
-      const itemIndex = updatedInventory.findIndex(item => item.id === itemId);
-      if (itemIndex !== -1) {
-        updatedInventory[itemIndex].quantity -= 1;
-        if (updatedInventory[itemIndex].quantity <= 0) {
-          updatedInventory.splice(itemIndex, 1);
-        }
-      }
-    });
+    // We don't need to remove items from inventory here because they were already
+    // removed when they were placed on the grid. We just need to clear the grid.
     
     // Check if crafting succeeds based on success chance
     const roll = Math.random() * 100;
     const craftingSucceeds = roll <= successChance;
-    
-    // Get the pattern used in crafting
-    const patternUsed = getGridPattern(grid);
     
     if (craftingSucceeds) {
       // Add crafted item to inventory with pattern information
@@ -474,12 +543,17 @@ export const useCrafting = ({
       
       if (existingItem) {
         existingItem.quantity += 1;
+        // Make sure to update the pattern even for existing items
+        existingItem.craftingPattern = patternUsed;
+        console.log("Updated existing item with pattern:", existingItem); // Debug log
       } else {
-        updatedInventory.push({ 
+        const newItem = { 
           id: craftedItemId, 
           quantity: 1,
           craftingPattern: patternUsed // Store the pattern used
-        });
+        };
+        updatedInventory.push(newItem);
+        console.log("Added new item with pattern:", newItem); // Debug log
       }
       
       // Calculate experience gain
@@ -518,7 +592,7 @@ export const useCrafting = ({
       // Show success notification
       setCraftingNotification({
         type: 'success',
-        message: `Successfully crafted ${outputItem.name}!`
+        message: `Successfully crafted ${outputItem.name} with ${getPatternName(patternUsed)} pattern!`
       });
       
       // Check if this was a secret recipe discovery
