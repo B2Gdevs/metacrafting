@@ -11,7 +11,7 @@ import {
   getRarityClass,
   getRarityTextClass
 } from "@/lib/marketplace-utils";
-import { Coins, Diamond, Info, Package, ShoppingCart } from "lucide-react";
+import { Coins, Diamond, Info, Package, ShoppingCart, Plus } from "lucide-react";
 
 interface ItemCardProps {
   itemId: string;
@@ -24,6 +24,7 @@ interface ItemCardProps {
   playerGems: number;
   onAction: () => void;
   dualCurrency?: { gold: number; gems: number };
+  requireBothCurrencies?: boolean;
   character?: CharacterStats;
   onShowOverlay?: (top: number) => void;
   onHideOverlay?: () => void;
@@ -40,17 +41,27 @@ export default function ItemCard({
   playerGems,
   onAction,
   dualCurrency,
+  requireBothCurrencies = false,
   character,
   onShowOverlay,
   onHideOverlay
 }: ItemCardProps) {
   const item = gameItems[itemId];
   
+  console.log(`ItemCard for ${itemId}:`, { 
+    dualCurrency, 
+    requireBothCurrencies,
+    currency,
+    price,
+    stock
+  });
+  
   if (!item) {
+    console.error(`Item not found: ${itemId}`);
     return null;
   }
   
-  const canAfford = canAffordItem(playerGold, playerGems, price, currency, dualCurrency);
+  const canAfford = canAffordItem(playerGold, playerGems, price, currency, dualCurrency, requireBothCurrencies);
   
   const actionText = {
     buy: "Buy",
@@ -144,6 +155,102 @@ export default function ItemCard({
     }
   };
   
+  // Currency Display - Always visible
+  const renderCurrencyDisplay = () => {
+    // Debug the dual currency data
+    console.log("renderCurrencyDisplay for " + itemId + ":", {
+      dualCurrency,
+      hasDualCurrency: dualCurrency && dualCurrency.gold > 0 && dualCurrency.gems > 0,
+      requireBothCurrencies
+    });
+
+    if (dualCurrency && dualCurrency.gold > 0 && dualCurrency.gems > 0) {
+      return (
+        <div className="mb-3">
+          {/* Dual Currency Badge - Prominent at the top */}
+          <div className={`w-full mb-2 flex justify-center`}>
+            <Badge 
+              className={`px-3 py-1 text-xs font-bold ${
+                requireBothCurrencies 
+                  ? "bg-purple-900/60 text-purple-200 border border-purple-500/50" 
+                  : "bg-gray-800/60 text-gray-200 border border-gray-600/50"
+              }`}
+            >
+              {requireBothCurrencies ? "REQUIRES BOTH CURRENCIES" : "ACCEPTS EITHER CURRENCY"}
+            </Badge>
+          </div>
+          
+          {/* Currency Display Box */}
+          <div className={`
+            rounded-lg p-2 border border-gray-700/50
+            ${requireBothCurrencies 
+              ? 'bg-gradient-to-r from-amber-900/30 via-purple-900/20 to-blue-900/30 border-purple-700/30' 
+              : 'bg-gradient-to-r from-amber-900/30 to-blue-900/30'}
+          `}>
+            {/* Gold Display */}
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-full bg-amber-900/40">
+                  <Coins className="h-4 w-4 text-amber-400" />
+                </div>
+                <p className="text-sm font-semibold text-amber-400">{dualCurrency.gold} Gold</p>
+              </div>
+              {!requireBothCurrencies && currency === "gold" && (
+                <Badge variant="outline" className="text-xs bg-amber-900/30 border-amber-500/30 text-amber-400">
+                  Selected
+                </Badge>
+              )}
+            </div>
+            
+            {/* Connector */}
+            <div className="flex justify-center items-center my-1">
+              <div className={`px-3 py-0.5 rounded-full text-xs font-bold ${
+                requireBothCurrencies 
+                  ? "bg-purple-900/40 text-purple-300" 
+                  : "bg-gray-800 text-gray-400"
+              }`}>
+                {requireBothCurrencies ? "AND" : "OR"}
+              </div>
+            </div>
+            
+            {/* Gems Display */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className="p-1 rounded-full bg-blue-900/40">
+                  <Diamond className="h-4 w-4 text-blue-400" />
+                </div>
+                <p className="text-sm font-semibold text-blue-400">{dualCurrency.gems} Gems</p>
+              </div>
+              {!requireBothCurrencies && currency === "gems" && (
+                <Badge variant="outline" className="text-xs bg-blue-900/30 border-blue-500/30 text-blue-400">
+                  Selected
+                </Badge>
+              )}
+            </div>
+          </div>
+        </div>
+      );
+    } else {
+      return (
+        <div className="mb-3">
+          <p className="text-sm font-semibold flex items-center justify-center">
+            {currency === "gold" ? (
+              <span className="flex items-center bg-amber-900/20 px-3 py-1.5 rounded-lg border border-amber-700/30">
+                <Coins className="h-5 w-5 mr-2 text-amber-500" />
+                <span className="text-amber-400 font-bold">{price} Gold</span>
+              </span>
+            ) : (
+              <span className="flex items-center bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-700/30">
+                <Diamond className="h-5 w-5 mr-2 text-blue-500" />
+                <span className="text-blue-400 font-bold">{price} Gems</span>
+              </span>
+            )}
+          </p>
+        </div>
+      );
+    }
+  };
+
   return (
     <div 
       className={`border-2 ${getRarityClass(item.rarity || 'common')} rounded-lg overflow-hidden bg-card text-card-foreground shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] relative`}
@@ -172,6 +279,11 @@ export default function ItemCard({
             {item.equippable && character && (
               <Badge variant="outline" className={`text-xs ${item.rarity && item.rarity !== "common" ? getRarityTextClass(item.rarity) : ""}`}>
                 Equippable
+              </Badge>
+            )}
+            {stock > 1 && (
+              <Badge variant="outline" className="text-xs bg-gray-800 text-gray-200">
+                Qty: {stock}
               </Badge>
             )}
           </div>
@@ -234,41 +346,16 @@ export default function ItemCard({
       
       {/* Price and Button - Always visible */}
       <div className="bg-card border-t border-border p-4 pt-3">
-        <div className="flex justify-between items-center mb-3">
-          <div>
-            {dualCurrency ? (
-              <div className="space-y-1">
-                <div className="flex items-center">
-                  <Coins className="h-3 w-3 mr-1 text-amber-500" />
-                  <p className="text-xs font-semibold text-amber-400">{dualCurrency.gold} Gold</p>
-                </div>
-                <div className="flex items-center">
-                  <Diamond className="h-3 w-3 mr-1 text-blue-500" />
-                  <p className="text-xs font-semibold text-blue-400">{dualCurrency.gems} Gems</p>
-                </div>
-              </div>
-            ) : (
-              <p className="text-sm font-semibold flex items-center">
-                {currency === "gold" ? (
-                  <>
-                    <Coins className="h-4 w-4 mr-1 text-amber-500" />
-                    <span className="text-amber-400">{price} Gold</span>
-                  </>
-                ) : (
-                  <>
-                    <Diamond className="h-4 w-4 mr-1 text-blue-500" />
-                    <span className="text-blue-400">{price} Gems</span>
-                  </>
-                )}
-              </p>
-            )}
-            {action === "buy" && stock > 0 && (
-              <p className="text-xs text-muted-foreground">{stockText[action]}</p>
-            )}
-          </div>
+        {/* Currency Display */}
+        {renderCurrencyDisplay()}
+        
+        <div className="flex justify-between items-center mb-2">
+          {action === "buy" && stock > 0 && (
+            <p className="text-xs text-muted-foreground">{stockText[action]}</p>
+          )}
           
           {action === "buy" && !canAfford && (
-            <Badge variant="destructive" className="text-xs">
+            <Badge variant="destructive" className="ml-auto text-xs">
               Cannot Afford
             </Badge>
           )}

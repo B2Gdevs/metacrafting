@@ -53,6 +53,66 @@ export const npcShopItems = [
     price: 650,
     currency: "gold" as const,
     stock: 1
+  },
+
+  // Items with dual currency options - OR logic (either currency)
+  {
+    id: "stone",
+    price: 50,
+    currency: "gold" as const,
+    stock: 10,
+    dualCurrency: { gold: 50, gems: 1 },
+    requireBothCurrencies: false
+  },
+  {
+    id: "wood",
+    price: 50,
+    currency: "gold" as const,
+    stock: 10,
+    dualCurrency: { gold: 50, gems: 1 },
+    requireBothCurrencies: false
+  },
+  {
+    id: "iron_ore",
+    price: 50,
+    currency: "gold" as const,
+    stock: 10,
+    dualCurrency: { gold: 50, gems: 1 },
+    requireBothCurrencies: false
+  },
+  {
+    id: "leather",
+    price: 75,
+    currency: "gold" as const,
+    stock: 8,
+    dualCurrency: { gold: 75, gems: 2 },
+    requireBothCurrencies: false
+  },
+  
+  // Items with dual currency options - AND logic (both currencies required)
+  {
+    id: "magic_crystal",
+    price: 100,
+    currency: "gold" as const,
+    stock: 3,
+    dualCurrency: { gold: 100, gems: 3 },
+    requireBothCurrencies: true
+  },
+  {
+    id: "ancient_artifact",
+    price: 200,
+    currency: "gold" as const,
+    stock: 1,
+    dualCurrency: { gold: 200, gems: 5 },
+    requireBothCurrencies: true
+  },
+  {
+    id: "dragon_heart",
+    price: 500,
+    currency: "gold" as const,
+    stock: 1,
+    dualCurrency: { gold: 500, gems: 10 },
+    requireBothCurrencies: true
   }
 ];
 

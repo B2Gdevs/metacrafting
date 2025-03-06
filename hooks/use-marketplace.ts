@@ -16,6 +16,8 @@ export interface PlayerMarketItem {
     gold: number;
     gems: number;
   };
+  requireBothCurrencies?: boolean;
+  originalItem?: Item;
 }
 
 export interface FilterState {
@@ -60,13 +62,14 @@ export interface UseMarketplaceReturn {
   listingQuantity: number;
   useDualCurrency: boolean;
   dualCurrencyValues: { gold: number; gems: number };
+  requireBothCurrencies: boolean;
   filterState: FilterState;
   searchTerm: string;
   
   // Handlers
   setSelectedTab: (tab: "npc" | "player") => void;
   setSelectedAction: (action: "buy" | "sell") => void;
-  handleBuyItem: (itemId: string, price: number, currency: "gold" | "gems", dualCurrency?: { gold: number; gems: number }) => void;
+  handleBuyItem: (itemId: string, price: number, currency: "gold" | "gems", dualCurrency?: { gold: number; gems: number }, requireBothCurrencies?: boolean, seller?: string) => void;
   handleSellItem: (itemId: string) => void;
   handleOpenListingDialog: (itemId: string) => void;
   handleListItem: () => void;
@@ -75,6 +78,7 @@ export interface UseMarketplaceReturn {
   setListingQuantity: (quantity: number) => void;
   setUseDualCurrency: (use: boolean) => void;
   setDualCurrencyValues: (values: { gold: number; gems: number }) => void;
+  setRequireBothCurrencies: (require: boolean) => void;
   setItemToList: (itemId: string | null) => void;
   updateFilterState: (updates: Partial<FilterState>) => void;
   resetFilters: () => void;
@@ -93,6 +97,7 @@ export type NpcItem = {
   currency: "gold" | "gems";
   stock: number;
   dualCurrency?: { gold: number; gems: number };
+  requireBothCurrencies?: boolean;
 };
 
 // Default filter state
@@ -125,6 +130,9 @@ export const useMarketplace = ({
   onUpdateCharacter,
   onUpdateInventory
 }: UseMarketplaceProps): UseMarketplaceReturn => {
+  // Debug: Log the marketplace data
+  console.log("Initial marketplaceNpcItems:", marketplaceNpcItems);
+
   // State
   const [npcItems, setNpcItems] = useState<NpcItem[]>(marketplaceNpcItems);
   const [selectedTab, setSelectedTab] = useState<"npc" | "player">("npc");
@@ -137,6 +145,7 @@ export const useMarketplace = ({
   const [listingQuantity, setListingQuantity] = useState<number>(1);
   const [useDualCurrency, setUseDualCurrency] = useState<boolean>(false);
   const [dualCurrencyValues, setDualCurrencyValues] = useState<{ gold: number; gems: number }>({ gold: 0, gems: 0 });
+  const [requireBothCurrencies, setRequireBothCurrencies] = useState<boolean>(false);
   const [filterState, setFilterState] = useState<FilterState>(defaultFilterState);
   const [searchTerm, setSearchTerm] = useState<string>("");
 
@@ -167,12 +176,48 @@ export const useMarketplace = ({
     itemId: string, 
     price: number, 
     currency: "gold" | "gems", 
-    dualCurrency?: { gold: number; gems: number }
+    dualCurrency?: { gold: number; gems: number },
+    requireBothCurrencies?: boolean,
+    seller?: string
   ) => {
+    console.log("handleBuyItem called with:", {
+      itemId,
+      price,
+      currency,
+      dualCurrency,
+      requireBothCurrencies,
+      seller
+    });
+
+    // Check if this is a player listing
+    const isPlayerListing = !!seller;
+    let playerListing: PlayerMarketItem | undefined;
+    
+    if (isPlayerListing) {
+      playerListing = playerMarketItems.find(item => 
+        item.id === itemId && item.seller === seller
+      );
+      
+      if (!playerListing) {
+        addNotification("Listing not found", "error");
+        return;
+      }
+      
+      console.log("Found player listing:", playerListing);
+    }
+
     // Check if player has enough currency
-    if (dualCurrency) {
+    if (dualCurrency && requireBothCurrencies) {
+      // Both currencies are required
       if (character.gold < dualCurrency.gold || character.gems < dualCurrency.gems) {
         addNotification("Not enough currency to purchase this item", "error");
+        return;
+      }
+    } else if (dualCurrency) {
+      // Either currency is acceptable
+      if ((currency === "gold" && character.gold < dualCurrency.gold) || 
+          (currency === "gems" && character.gems < dualCurrency.gems)) {
+        addNotification(`Not enough ${currency} to purchase this item`, "error");
         return;
       }
     } else if (currency === "gold") {
@@ -189,9 +234,17 @@ export const useMarketplace = ({
     
     // Update character's currency
     const updatedCharacter = { ...character };
-    if (dualCurrency) {
+    if (dualCurrency && requireBothCurrencies) {
+      // Deduct both currencies
       updatedCharacter.gold -= dualCurrency.gold;
       updatedCharacter.gems -= dualCurrency.gems;
+    } else if (dualCurrency) {
+      // Deduct only the selected currency
+      if (currency === "gold") {
+        updatedCharacter.gold -= dualCurrency.gold;
+      } else {
+        updatedCharacter.gems -= dualCurrency.gems;
+      }
     } else if (currency === "gold") {
       updatedCharacter.gold -= price;
     } else if (currency === "gems") {
@@ -201,32 +254,29 @@ export const useMarketplace = ({
     // Update inventory
     const updatedInventory = [...inventory];
     const existingItem = updatedInventory.find(item => item.id === itemId);
+    
     if (existingItem) {
-      existingItem.quantity += 1;
+      existingItem.quantity += 1; // Default to 1 if not specified
     } else {
       updatedInventory.push({ id: itemId, quantity: 1 });
     }
     
-    // Update NPC shop stock if buying from NPC
-    if (selectedTab === "npc") {
-      const updatedNpcItems = npcItems.map(item => {
-        if (item.id === itemId) {
-          return { ...item, stock: item.stock - 1 };
-        }
-        return item;
-      });
-      setNpcItems(updatedNpcItems);
-    }
-    
-    // Update player market items if buying from player market
-    if (selectedTab === "player") {
+    // If this is a player listing, update the player market items
+    if (isPlayerListing && playerListing) {
+      // Decrease the quantity of the listing
       const updatedPlayerMarketItems = playerMarketItems.map(item => {
-        if (item.id === itemId) {
-          return { ...item, quantity: item.quantity - 1 };
+        if (item.id === itemId && item.seller === seller) {
+          return {
+            ...item,
+            quantity: item.quantity - 1
+          };
         }
         return item;
-      }).filter(item => item.quantity > 0);
+      }).filter(item => item.quantity > 0); // Remove listings with 0 quantity
+      
       setPlayerMarketItems(updatedPlayerMarketItems);
+    } else {
+      // For NPC items, we don't need to update the stock as it's handled separately
     }
     
     // Update state
@@ -234,8 +284,9 @@ export const useMarketplace = ({
     onUpdateInventory(updatedInventory);
     
     // Show success notification
-    addNotification(`Successfully purchased ${gameItems[itemId]?.name || itemId}`, "success");
-  }, [character, inventory, npcItems, playerMarketItems, selectedTab, gameItems, onUpdateCharacter, onUpdateInventory, addNotification]);
+    const itemName = gameItems[itemId]?.name || itemId;
+    addNotification(`Successfully purchased ${itemName}`, "success");
+  }, [character, inventory, playerMarketItems, gameItems, onUpdateCharacter, onUpdateInventory, addNotification]);
 
   // Handle selling an item
   const handleSellItem = useCallback((itemId: string) => {
@@ -291,10 +342,21 @@ export const useMarketplace = ({
     setListingQuantity(1);
     setUseDualCurrency(false);
     setDualCurrencyValues({ gold: 0, gems: 0 });
+    setRequireBothCurrencies(false);
   }, [gameItems]);
 
   // Handle listing an item
   const handleListItem = useCallback(() => {
+    console.log("handleListItem called with:", {
+      itemToList,
+      listingPrice,
+      listingCurrency,
+      listingQuantity,
+      useDualCurrency,
+      dualCurrencyValues,
+      requireBothCurrencies
+    });
+
     if (!itemToList) return;
     
     // Find item in inventory
@@ -304,22 +366,48 @@ export const useMarketplace = ({
       return;
     }
     
-    // Create listing
+    // Get the original game item for reference
+    const gameItem = gameItems[itemToList];
+    if (!gameItem) {
+      addNotification("Item not found", "error");
+      return;
+    }
+    
+    // Create listing with all necessary attributes
     const newListing: PlayerMarketItem = {
       id: itemToList,
       price: listingPrice,
       currency: listingCurrency,
       seller: character.name,
       quantity: listingQuantity,
+      // Store a reference to the original item for custom attributes
+      originalItem: { ...gameItem }
     };
     
-    // Add dual currency if enabled
-    if (useDualCurrency) {
+    // IMPORTANT: Always add dual currency if values are set, regardless of useDualCurrency flag
+    if (dualCurrencyValues.gold > 0 && dualCurrencyValues.gems > 0) {
       newListing.dualCurrency = { ...dualCurrencyValues };
+      newListing.requireBothCurrencies = requireBothCurrencies;
+      
+      console.log("Saving listing with dual currency:", {
+        itemId: itemToList,
+        dualCurrency: newListing.dualCurrency,
+        requireBothCurrencies: newListing.requireBothCurrencies,
+        quantity: listingQuantity
+      });
+    } else if (useDualCurrency) {
+      // If dual currency is enabled but values are invalid, show a warning
+      console.warn("Dual currency enabled but values are invalid:", dualCurrencyValues);
+      addNotification("Dual currency values must be greater than 0", "error");
+      return;
     }
     
     // Update player market items
-    setPlayerMarketItems(prev => [...prev, newListing]);
+    setPlayerMarketItems(prev => {
+      const updated = [...prev, newListing];
+      console.log("Updated player market items:", updated);
+      return updated;
+    });
     
     // Update inventory
     const updatedInventory = inventory.map(item => {
@@ -334,10 +422,16 @@ export const useMarketplace = ({
     
     // Reset listing state
     setItemToList(null);
+    setListingPrice(0);
+    setListingCurrency("gold");
+    setListingQuantity(1);
+    setUseDualCurrency(false);
+    setDualCurrencyValues({ gold: 0, gems: 0 });
+    setRequireBothCurrencies(false);
     
     // Show success notification
-    addNotification(`Successfully listed ${gameItems[itemToList]?.name || itemToList} for sale`, "success");
-  }, [itemToList, inventory, listingPrice, listingCurrency, listingQuantity, useDualCurrency, dualCurrencyValues, character.name, gameItems, onUpdateInventory, addNotification]);
+    addNotification(`Successfully listed ${gameItem.name || itemToList} for sale`, "success");
+  }, [itemToList, inventory, listingPrice, listingCurrency, listingQuantity, useDualCurrency, dualCurrencyValues, character.name, gameItems, onUpdateInventory, addNotification, requireBothCurrencies]);
 
   // Filter items based on filter state and search term
   const filterItems = useCallback(<T extends { id: string; price: number; currency: "gold" | "gems"; stock?: number; quantity?: number; dualCurrency?: { gold: number; gems: number } }>(
@@ -464,6 +558,7 @@ export const useMarketplace = ({
     listingQuantity,
     useDualCurrency,
     dualCurrencyValues,
+    requireBothCurrencies,
     filterState,
     searchTerm,
     
@@ -479,6 +574,7 @@ export const useMarketplace = ({
     setListingQuantity,
     setUseDualCurrency,
     setDualCurrencyValues,
+    setRequireBothCurrencies,
     setItemToList,
     updateFilterState,
     resetFilters,

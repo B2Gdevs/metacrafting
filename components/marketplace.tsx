@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { CharacterStats } from "@/components/character-sheet";
 import { useMarketplace } from "@/hooks/use-marketplace";
@@ -37,6 +37,7 @@ export default function Marketplace({
     listingQuantity,
     useDualCurrency,
     dualCurrencyValues,
+    requireBothCurrencies,
     filterState,
     searchTerm,
     
@@ -52,6 +53,7 @@ export default function Marketplace({
     setListingQuantity,
     setUseDualCurrency,
     setDualCurrencyValues,
+    setRequireBothCurrencies,
     setItemToList,
     updateFilterState,
     resetFilters,
@@ -68,6 +70,16 @@ export default function Marketplace({
     onUpdateCharacter,
     onUpdateInventory
   });
+
+  // Debug: Log NPC items to see if dual currency is present
+  useEffect(() => {
+    console.log("filteredNpcItems:", filteredNpcItems);
+  }, [filteredNpcItems]);
+
+  // Debug: Log player items to see if dual currency is present
+  useEffect(() => {
+    console.log("filteredPlayerItems:", filteredPlayerItems);
+  }, [filteredPlayerItems]);
 
   // State for the equipment comparison overlay
   const [overlayData, setOverlayData] = useState<{
@@ -192,24 +204,28 @@ export default function Marketplace({
             <div className="md:col-span-3">
               <TabsContent value="npc" className="mt-0">
                 <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredNpcItems.map(item => (
-                    <ItemCard
-                      key={item.id}
-                      itemId={item.id}
-                      price={item.price}
-                      currency={item.currency}
-                      stock={item.stock}
-                      action="buy"
-                      gameItems={gameItems}
-                      playerGold={character.gold}
-                      playerGems={character.gems}
-                      onAction={() => handleBuyItem(item.id, item.price, item.currency, item.dualCurrency)}
-                      dualCurrency={item.dualCurrency}
-                      character={character}
-                      onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
-                      onHideOverlay={hideComparisonOverlay}
-                    />
-                  ))}
+                  {filteredNpcItems.map(item => {
+                    console.log("Rendering NPC item:", item);
+                    return (
+                      <ItemCard
+                        key={item.id}
+                        itemId={item.id}
+                        price={item.price}
+                        currency={item.currency}
+                        stock={item.stock}
+                        action="buy"
+                        gameItems={gameItems}
+                        playerGold={character.gold}
+                        playerGems={character.gems}
+                        onAction={() => handleBuyItem(item.id, item.price, item.currency, item.dualCurrency, item.requireBothCurrencies)}
+                        dualCurrency={item.dualCurrency}
+                        requireBothCurrencies={item.requireBothCurrencies}
+                        character={character}
+                        onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
+                        onHideOverlay={hideComparisonOverlay}
+                      />
+                    );
+                  })}
                   {filteredNpcItems.length === 0 && (
                     <div className="col-span-full text-center py-8">
                       <p className="text-muted-foreground">No items match your filters</p>
@@ -238,24 +254,28 @@ export default function Marketplace({
                 
                 {selectedAction === 'buy' && (
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredPlayerItems.map(item => (
-                      <ItemCard
-                        key={`${item.id}-${item.seller}`}
-                        itemId={item.id}
-                        price={item.price}
-                        currency={item.currency}
-                        stock={item.quantity}
-                        action="buy"
-                        gameItems={gameItems}
-                        playerGold={character.gold}
-                        playerGems={character.gems}
-                        onAction={() => handleBuyItem(item.id, item.price, item.currency, item.dualCurrency)}
-                        dualCurrency={item.dualCurrency}
-                        character={character}
-                        onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
-                        onHideOverlay={hideComparisonOverlay}
-                      />
-                    ))}
+                    {filteredPlayerItems.map(item => {
+                      console.log("Rendering player item:", item);
+                      return (
+                        <ItemCard
+                          key={`${item.id}-${item.seller}`}
+                          itemId={item.id}
+                          price={item.price}
+                          currency={item.currency}
+                          stock={item.quantity}
+                          action="buy"
+                          gameItems={gameItems}
+                          playerGold={character.gold}
+                          playerGems={character.gems}
+                          onAction={() => handleBuyItem(item.id, item.price, item.currency, item.dualCurrency, item.requireBothCurrencies, item.seller)}
+                          dualCurrency={item.dualCurrency}
+                          requireBothCurrencies={item.requireBothCurrencies}
+                          character={character}
+                          onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
+                          onHideOverlay={hideComparisonOverlay}
+                        />
+                      );
+                    })}
                     {filteredPlayerItems.length === 0 && (
                       <div className="col-span-full text-center py-8">
                         <p className="text-muted-foreground">No player listings match your filters</p>
@@ -312,6 +332,8 @@ export default function Marketplace({
           setUseDualCurrency={setUseDualCurrency}
           dualCurrencyValues={dualCurrencyValues}
           setDualCurrencyValues={setDualCurrencyValues}
+          requireBothCurrencies={requireBothCurrencies}
+          setRequireBothCurrencies={setRequireBothCurrencies}
           onListItem={handleListItem}
         />
         

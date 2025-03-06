@@ -114,10 +114,18 @@ export const canAffordItem = (
   playerGems: number,
   price: number,
   currency: "gold" | "gems",
-  dualCurrency?: { gold: number; gems: number }
+  dualCurrency?: { gold: number; gems: number },
+  requireBothCurrencies?: boolean
 ): boolean => {
   if (dualCurrency) {
-    return playerGold >= dualCurrency.gold && playerGems >= dualCurrency.gems;
+    if (requireBothCurrencies) {
+      // Both currencies are required (AND)
+      return playerGold >= dualCurrency.gold && playerGems >= dualCurrency.gems;
+    } else {
+      // Either currency is acceptable (OR)
+      return (currency === "gold" && playerGold >= dualCurrency.gold) || 
+             (currency === "gems" && playerGems >= dualCurrency.gems);
+    }
   }
   
   if (currency === "gold") {

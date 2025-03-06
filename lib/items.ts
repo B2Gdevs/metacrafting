@@ -23,8 +23,8 @@ export const gameItems: Record<string, Item> = {
     subType: "mineral",
     rarity: "common",
   },
-  iron: {
-    id: "iron",
+  iron_ore: {
+    id: "iron_ore",
     name: "Iron Ore",
     image: "/placeholder.svg?height=64&width=64",
     description: "Metal ore that can be refined and crafted",
@@ -541,4 +541,35 @@ export const gameItems: Record<string, Item> = {
     },
     specialAbility: "Has a chance to stun enemies on hit"
   },
+  // Add missing items for dual currency testing
+  magic_crystal: {
+    id: "magic_crystal",
+    name: "Magic Crystal",
+    image: "/placeholder.svg?height=64&width=64",
+    description: "A rare crystal infused with magical energy",
+    type: "ingredient",
+    subType: "magical",
+    rarity: "rare",
+    value: 100
+  },
+  ancient_artifact: {
+    id: "ancient_artifact",
+    name: "Ancient Artifact",
+    image: "/placeholder.svg?height=64&width=64",
+    description: "A mysterious artifact from a forgotten civilization",
+    type: "ingredient",
+    subType: "magical",
+    rarity: "epic",
+    value: 200
+  },
+  dragon_heart: {
+    id: "dragon_heart",
+    name: "Dragon Heart",
+    image: "/placeholder.svg?height=64&width=64",
+    description: "The still-beating heart of a dragon, pulsing with power",
+    type: "ingredient",
+    subType: "magical",
+    rarity: "legendary",
+    value: 500
+  }
 }; 

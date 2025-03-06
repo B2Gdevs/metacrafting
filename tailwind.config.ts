@@ -108,13 +108,43 @@ const config: Config = {
                 '50%': {
                     boxShadow: '0 0 15px 5px currentColor'
                 }
+            },
+            'float-slow': {
+                '0%': {
+                    transform: 'translateY(0) translateX(0)',
+                    opacity: '0'
+                },
+                '10%': {
+                    opacity: '0.5'
+                },
+                '50%': {
+                    transform: 'translateY(-20px) translateX(10px)',
+                    opacity: '0.3'
+                },
+                '90%': {
+                    opacity: '0.1'
+                },
+                '100%': {
+                    transform: 'translateY(-40px) translateX(-5px)',
+                    opacity: '0'
+                }
+            },
+            'shimmer': {
+                '0%': {
+                    transform: 'translateX(-100%)'
+                },
+                '100%': {
+                    transform: 'translateX(100%)'
+                }
             }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
   			'accordion-up': 'accordion-up 0.2s ease-out',
             'float-particle': 'float-particle 3s ease-in-out infinite',
-            'glow-pulse': 'glow-pulse 2s ease-in-out infinite'
+            'glow-pulse': 'glow-pulse 2s ease-in-out infinite',
+            'float-slow': 'float-slow 15s ease-in-out infinite',
+            'shimmer': 'shimmer 2s linear infinite'
   		}
   	}
   },
