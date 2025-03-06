@@ -6,6 +6,7 @@ import { useState } from "react"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { Badge } from "@/components/ui/badge"
 import { EquipmentSlot } from "@/lib/items"
+import { gameItems } from "@/lib/items"
 
 export type ItemType = "ingredient" | "crafted" | "weapon" | "armor" | "potion" | "tool" | "magical" | "accessory"
 export type ItemRarity = "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic"
@@ -91,12 +92,35 @@ export default function ItemSlot({
     setShowTooltip(false)
     onDragStart()
 
-    // Set a ghost image for dragging
-    const img = new Image()
-    img.src = item.image
-    img.width = 50
-    img.height = 50
-    e.dataTransfer.setDragImage(img, 25, 25)
+    // Create a custom drag image to control the size
+    if (e.target instanceof HTMLElement) {
+      const img = new Image();
+      const itemObj = typeof item === 'string' ? gameItems[item] : item;
+      if (itemObj?.image) {
+        img.src = itemObj.image;
+        img.width = 40;
+        img.height = 40;
+        // This creates an invisible div to hold our drag image
+        const dragGhost = document.createElement('div');
+        dragGhost.style.position = 'absolute';
+        dragGhost.style.top = '-1000px';
+        dragGhost.style.width = '40px';
+        dragGhost.style.height = '40px';
+        dragGhost.style.backgroundImage = `url(${itemObj.image})`;
+        dragGhost.style.backgroundSize = 'contain';
+        dragGhost.style.backgroundRepeat = 'no-repeat';
+        dragGhost.style.backgroundPosition = 'center';
+        document.body.appendChild(dragGhost);
+        
+        // Set the drag image
+        e.dataTransfer.setDragImage(dragGhost, 20, 20);
+        
+        // Remove the element after a short delay
+        setTimeout(() => {
+          document.body.removeChild(dragGhost);
+        }, 100);
+      }
+    }
   }
 
   const handleDragEnd = () => {
@@ -145,28 +169,48 @@ export default function ItemSlot({
         <TooltipTrigger asChild>
           <div
             className={`relative w-full aspect-square bg-gray-800 rounded border ${isEquipped ? 'border-amber-500' : 'border-gray-700'} flex items-center justify-center cursor-grab hover:border-gray-500 transition-colors`}
-            draggable
-            onDragStart={handleDragStart}
+            draggable={!!item}
+            onDragStart={(e) => {
+              if (item) {
+                // Set the data transfer with the item ID
+                const itemId = typeof item === 'string' ? item : item.id;
+                e.dataTransfer.setData("text/plain", itemId);
+                e.dataTransfer.setData("application/json", JSON.stringify({
+                  id: itemId,
+                  type: "INVENTORY_ITEM"
+                }));
+                e.dataTransfer.effectAllowed = "move";
+                handleDragStart(e);
+              }
+            }}
             onDragEnd={handleDragEnd}
             onClick={onClick || onEquip}
             onMouseEnter={() => setShowTooltip(true)}
             onMouseLeave={() => setShowTooltip(false)}
           >
-            <img src={item.image} alt={item.name} className="w-10 h-10 object-contain" />
-            {showBadge && quantity > 1 && (
-              <div className="absolute bottom-0 right-0 bg-gray-900 rounded-tl px-1 text-xs font-medium">
-                {quantity}
-              </div>
-            )}
-            {isEquipped && (
-              <div className="absolute top-0 right-0 bg-amber-900 rounded-bl px-1 text-xs font-medium text-amber-300">
-                E
-              </div>
-            )}
-            {item.rarity && item.rarity !== "common" && (
-              <div className={`absolute top-0 left-0 rounded-br px-1 text-xs font-medium ${getRarityColor(item.rarity)} bg-gray-900/80`}>
-                {item.rarity.charAt(0).toUpperCase()}
-              </div>
+            {item ? (
+              <>
+                <img src={typeof item === 'string' ? gameItems[item]?.image : item.image} 
+                     alt={typeof item === 'string' ? gameItems[item]?.name : item.name} 
+                     className="w-10 h-10 object-contain" />
+                {showBadge && quantity > 1 && (
+                  <div className="absolute bottom-0 right-0 bg-gray-900 rounded-tl px-1 text-xs font-medium">
+                    {quantity}
+                  </div>
+                )}
+                {isEquipped && (
+                  <div className="absolute top-0 right-0 bg-amber-900 rounded-bl px-1 text-xs font-medium text-amber-300">
+                    E
+                  </div>
+                )}
+                {(typeof item !== 'string' && item.rarity && item.rarity !== "common") && (
+                  <div className={`absolute top-0 left-0 rounded-br px-1 text-xs font-medium ${getRarityColor(item.rarity)} bg-gray-900/80`}>
+                    {item.rarity.charAt(0).toUpperCase()}
+                  </div>
+                )}
+              </>
+            ) : (
+              <div className="text-gray-500 text-xs">Empty</div>
             )}
           </div>
         </TooltipTrigger>

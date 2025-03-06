@@ -5,14 +5,24 @@ import { Search, Filter } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Button } from "@/components/ui/button"
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import ItemSlot, { Item, ItemType, ItemRarity } from "@/components/item-slot"
 
 interface CraftingInventoryProps {
-  inventory: Array<{ id: string; quantity: number }>
+  inventory: Array<{ id: string; quantity: number; craftingPattern?: string }>
   gameItems: Record<string, Item>
   onDragStart: (item: string, source: "inventory" | "grid", index: number) => void
   onDropArea: () => void
 }
+
+// Helper function to get a human-readable pattern name
+const getPatternName = (pattern?: string): string => {
+  if (!pattern || pattern === "none") return "No pattern";
+  
+  // Capitalize first letter and add spaces before capital letters
+  return pattern.charAt(0).toUpperCase() + 
+    pattern.slice(1).replace(/([A-Z])/g, ' $1');
+};
 
 export default function CraftingInventory({
   inventory,
@@ -132,12 +142,31 @@ export default function CraftingInventory({
           {filteredInventory.length > 0 ? (
             filteredInventory.map((item, index) => (
               <div key={`${item.id}-${index}`} className="flex flex-col items-center">
-                <ItemSlot 
-                  item={gameItems[item.id]} 
-                  onDragStart={() => onDragStart(item.id, "inventory", index)}
-                  quantity={item.quantity}
-                  size="small"
-                />
+                <TooltipProvider>
+                  <Tooltip>
+                    <TooltipTrigger asChild>
+                      <div>
+                        <ItemSlot 
+                          item={gameItems[item.id]} 
+                          onDragStart={() => onDragStart(item.id, "inventory", index)}
+                          quantity={item.quantity}
+                          size="small"
+                        />
+                      </div>
+                    </TooltipTrigger>
+                    <TooltipContent side="top">
+                      <div className="space-y-1">
+                        <p className="font-medium">{gameItems[item.id]?.name}</p>
+                        <p className="text-xs text-gray-400">{gameItems[item.id]?.description}</p>
+                        {item.craftingPattern && (
+                          <p className="text-xs text-amber-400">
+                            Crafted with {getPatternName(item.craftingPattern)} pattern
+                          </p>
+                        )}
+                      </div>
+                    </TooltipContent>
+                  </Tooltip>
+                </TooltipProvider>
               </div>
             ))
           ) : (

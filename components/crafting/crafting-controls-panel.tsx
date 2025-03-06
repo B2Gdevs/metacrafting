@@ -36,8 +36,8 @@ export default function CraftingControlsPanel({
       />
       
       <div className="mt-4 text-xs text-gray-400">
-        <p>Adjust the controls to influence the crafting process. Higher magic power increases the quality but consumes more magic points.</p>
-        <p className="mt-2">Stability affects success chance and item durability.</p>
+        <p>Adjust the controls to influence the crafting process. Higher magic power adds magical effects to items but consumes more magic points.</p>
+        <p className="mt-2">Stability affects different properties depending on the item type being crafted.</p>
         {hasCursedRing && (
           <p className="mt-2 text-purple-400">Curse energy can provide powerful effects but may have unpredictable consequences.</p>
         )}

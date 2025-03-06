@@ -1,4 +1,4 @@
-import { useState, useCallback, useMemo } from "react";
+import { useState, useCallback, useMemo, useEffect } from "react";
 import { CraftingControlType } from "@/lib/recipes";
 import { EquipmentSlot } from "@/lib/items";
 import { CharacterStats } from "@/components/character-sheet";
@@ -7,10 +7,10 @@ import { Recipe } from "@/components/recipe-book";
 
 export interface UseCraftingProps {
   character: CharacterStats;
-  inventory: Array<{ id: string; quantity: number }>;
+  inventory: Array<{ id: string; quantity: number; craftingPattern?: string }>;
   gameItems: Record<string, Item>;
   recipes: Recipe[];
-  onUpdateCharacter: (updatedCharacter: CharacterStats, updatedInventory?: Array<{ id: string; quantity: number }>) => void;
+  onUpdateCharacter: (updatedCharacter: CharacterStats, updatedInventory?: Array<{ id: string; quantity: number; craftingPattern?: string }>) => void;
 }
 
 export interface UseCraftingReturn {
@@ -25,6 +25,12 @@ export interface UseCraftingReturn {
   // Recipe state
   selectedRecipe: Recipe | null;
   
+  // Notification state
+  craftingNotification: {
+    type: 'success' | 'error';
+    message: string;
+  } | null;
+  
   // Handlers
   handleDragStart: (item: string, source: "inventory" | "grid", index: number) => void;
   handleDropOnGrid: (index: number) => void;
@@ -32,6 +38,7 @@ export interface UseCraftingReturn {
   handleControlChange: (control: CraftingControlType, value: number) => void;
   handleCraft: () => void;
   handleQuickCraft: (recipeId: string) => void;
+  handleQuickAdd: (recipe: Recipe) => void;
   clearGrid: () => void;
   handleConsumeMagicPotion: () => void;
   handleEquipItem: (itemId: string, slot: EquipmentSlot) => void;
@@ -44,6 +51,9 @@ export interface UseCraftingReturn {
   hasCursedRing: boolean;
   manaPotionCount: number;
   magicCost: number;
+  
+  // Helper functions
+  findMatchingRecipe: () => Recipe | null;
 }
 
 export const useCrafting = ({
@@ -73,17 +83,70 @@ export const useCrafting = ({
   // Recipe state
   const [selectedRecipe, setSelectedRecipe] = useState<Recipe | null>(null);
   
+  // Add a new state for crafting notifications
+  const [craftingNotification, setCraftingNotification] = useState<{
+    type: 'success' | 'error';
+    message: string;
+  } | null>(null);
+  
   // Check if character has a cursed energy ring equipped
   const hasCursedRing = useMemo(() => {
     return character.equipment.rings.includes("cursed_energy_ring");
   }, [character.equipment.rings]);
   
-  // Calculate magic cost based on magic power level
+  // Function to find a matching recipe based on grid contents
+  const findMatchingRecipe = useCallback(() => {
+    // Skip if grid is empty
+    if (!grid.some(item => item !== null)) {
+      return null;
+    }
+    
+    // Get non-null items from the grid
+    const gridItems = grid.filter(item => item !== null) as string[];
+    
+    // Sort the grid items to match recipe inputs regardless of position
+    const sortedGridItems = [...gridItems].sort();
+    
+    // Find a recipe that matches the grid items
+    return recipes.find(recipe => {
+      // Skip if recipe requires more items than we have
+      if (recipe.inputs.length !== gridItems.length) {
+        return false;
+      }
+      
+      // Sort the recipe inputs to match grid items regardless of position
+      const sortedRecipeInputs = [...recipe.inputs].sort();
+      
+      // Check if the sorted arrays match
+      return sortedRecipeInputs.every((item, index) => item === sortedGridItems[index]);
+    }) || null;
+  }, [grid, recipes]);
+  
+  // Calculate magic cost based on control values and recipe
+  const calculateMagicCost = useCallback(() => {
+    // Try to find a matching recipe if none is selected
+    const recipeToUse = selectedRecipe || findMatchingRecipe();
+    if (!recipeToUse) return 0;
+    
+    // Base cost from recipe (if it's a magical item)
+    const baseCost = recipeToUse.magicCost || 0;
+    
+    // Additional cost from magic power control
+    // Magic power cost scales with the value: 0-20: 0 MP, 21-40: 5 MP, 41-60: 10 MP, 61-80: 15 MP, 81-100: 20 MP
+    const magicPowerCost = Math.floor(controlValues.magic / 20) * 5;
+    
+    // Additional cost from curse energy (if using it)
+    // Curse energy costs 1 MP per 10 points
+    const curseCost = Math.floor(controlValues.curse / 10);
+    
+    // Calculate total cost
+    return baseCost + magicPowerCost + curseCost;
+  }, [selectedRecipe, findMatchingRecipe, controlValues]);
+  
+  // Memoized magic cost
   const magicCost = useMemo(() => {
-    const baseCost = 10; // Base magic cost
-    const magicLevel = Math.floor(controlValues.magic / 20); // 0-5 scale
-    return baseCost * (magicLevel + 1);
-  }, [controlValues.magic]);
+    return calculateMagicCost();
+  }, [calculateMagicCost]);
   
   // Get mana potion count from inventory
   const manaPotionCount = useMemo(() => {
@@ -91,39 +154,48 @@ export const useCrafting = ({
     return potion ? potion.quantity : 0;
   }, [inventory]);
   
+  // Function to clear the crafting grid
+  const clearGrid = useCallback(() => {
+    // Create a new grid with all cells empty
+    const newGrid = Array(9).fill(null);
+    
+    // Update the grid
+    setGrid(newGrid);
+  }, []);
+  
   // Calculate success chance for crafting
   const calculateSuccessChance = useCallback(() => {
-    if (!selectedRecipe) return 50;
+    // Base chance is high for all crafting
+    let baseChance = 90; // 90% base chance for all items
     
-    // Base chance calculation
-    let baseChance = 50;
+    // If we have a recipe, we can adjust based on skills
+    const recipeToUse = selectedRecipe || findMatchingRecipe();
     
-    // Skill check
-    if (selectedRecipe.requiredStats) {
+    if (recipeToUse && recipeToUse.requiredStats) {
       let totalRequiredSkill = 0;
       let totalCharacterSkill = 0;
       
-      if (selectedRecipe.requiredStats.metalworking) {
-        totalRequiredSkill += selectedRecipe.requiredStats.metalworking;
+      if (recipeToUse.requiredStats.metalworking) {
+        totalRequiredSkill += recipeToUse.requiredStats.metalworking;
         totalCharacterSkill += Math.min(
           character.craftingStats.metalworking, 
-          selectedRecipe.requiredStats.metalworking
+          recipeToUse.requiredStats.metalworking * 2 // Cap at twice the required skill
         );
       }
       
-      if (selectedRecipe.requiredStats.magicworking) {
-        totalRequiredSkill += selectedRecipe.requiredStats.magicworking;
+      if (recipeToUse.requiredStats.magicworking) {
+        totalRequiredSkill += recipeToUse.requiredStats.magicworking;
         totalCharacterSkill += Math.min(
           character.craftingStats.magicworking, 
-          selectedRecipe.requiredStats.magicworking
+          recipeToUse.requiredStats.magicworking * 2 // Cap at twice the required skill
         );
       }
       
-      if (selectedRecipe.requiredStats.spellcraft) {
-        totalRequiredSkill += selectedRecipe.requiredStats.spellcraft;
+      if (recipeToUse.requiredStats.spellcraft) {
+        totalRequiredSkill += recipeToUse.requiredStats.spellcraft;
         totalCharacterSkill += Math.min(
           character.craftingStats.spellcraft, 
-          selectedRecipe.requiredStats.spellcraft
+          recipeToUse.requiredStats.spellcraft * 2 // Cap at twice the required skill
         );
       }
       
@@ -135,20 +207,20 @@ export const useCrafting = ({
         
         baseChance = Math.min(95, Math.max(5, baseChance + skillBonus - skillPenalty));
       }
+      
+      // Stability affects success chance only for magical items
+      const stabilityEffect = recipeToUse.magicCost ? (controlValues.stability - 50) / 2 : 0;
+      
+      // Curse energy reduces success chance only for magical items
+      const curseEffect = (recipeToUse.magicCost && controlValues.curse > 0) ? -(controlValues.curse / 10) : 0;
+      
+      // Apply effects
+      baseChance += stabilityEffect + curseEffect;
     }
     
-    // Stability affects success chance
-    const stabilityEffect = (controlValues.stability - 50) / 2;
-    
-    // Curse energy reduces success chance
-    const curseEffect = controlValues.curse > 0 ? -(controlValues.curse / 10) : 0;
-    
-    // Calculate final chance
-    let finalChance = baseChance + stabilityEffect + curseEffect;
-    
     // Cap between 5% and 95%
-    return Math.min(95, Math.max(5, finalChance));
-  }, [selectedRecipe, character.craftingStats, controlValues]);
+    return Math.min(95, Math.max(5, baseChance));
+  }, [selectedRecipe, findMatchingRecipe, character.craftingStats, controlValues]);
   
   // Memoized success chance
   const successChance = useMemo(() => {
@@ -245,38 +317,178 @@ export const useCrafting = ({
     }));
   }, []);
   
-  const handleCraft = useCallback(() => {
-    if (!selectedRecipe) return;
+  // Function to determine the pattern used in the grid
+  const getGridPattern = useCallback((grid: (string | null)[]) => {
+    // Check for different patterns
+    const patterns = [
+      { name: "linear", check: checkLinearPattern(grid) },
+      { name: "diagonal", check: checkDiagonalPattern(grid) },
+      { name: "square", check: checkSquarePattern(grid) },
+      { name: "cross", check: checkCrossPattern(grid) },
+      { name: "triangle", check: checkTrianglePattern(grid) },
+      { name: "circle", check: checkCirclePattern(grid) }
+    ];
     
-    // Check if player has enough magic points
-    if (character.magicPoints < magicCost) {
-      // Handle insufficient magic points
+    // Return the first matching pattern or "none"
+    const matchedPattern = patterns.find(p => p.check);
+    return matchedPattern ? matchedPattern.name : "none";
+  }, []);
+
+  // Pattern checking functions
+  const checkLinearPattern = useCallback((grid: (string | null)[]) => {
+    // Check horizontal lines
+    for (let row = 0; row < 3; row++) {
+      const startIdx = row * 3;
+      if (grid[startIdx] && grid[startIdx + 1] && grid[startIdx + 2]) {
+        return true;
+      }
+    }
+    
+    // Check vertical lines
+    for (let col = 0; col < 3; col++) {
+      if (grid[col] && grid[col + 3] && grid[col + 6]) {
+        return true;
+      }
+    }
+    
+    return false;
+  }, []);
+
+  const checkDiagonalPattern = useCallback((grid: (string | null)[]) => {
+    // Check main diagonal (top-left to bottom-right)
+    if (grid[0] && grid[4] && grid[8]) {
+      return true;
+    }
+    
+    // Check other diagonal (top-right to bottom-left)
+    if (grid[2] && grid[4] && grid[6]) {
+      return true;
+    }
+    
+    return false;
+  }, []);
+
+  const checkSquarePattern = useCallback((grid: (string | null)[]) => {
+    // Check 2x2 squares
+    const squares = [
+      [0, 1, 3, 4], // Top-left
+      [1, 2, 4, 5], // Top-right
+      [3, 4, 6, 7], // Bottom-left
+      [4, 5, 7, 8]  // Bottom-right
+    ];
+    
+    return squares.some(square => 
+      square.every(idx => grid[idx] !== null)
+    );
+  }, []);
+
+  const checkCrossPattern = useCallback((grid: (string | null)[]) => {
+    // Check for a cross pattern (center + adjacent cells)
+    return grid[4] !== null && (
+      (grid[1] !== null && grid[4] !== null && grid[7] !== null) || // Vertical
+      (grid[3] !== null && grid[4] !== null && grid[5] !== null)    // Horizontal
+    );
+  }, []);
+
+  const checkTrianglePattern = useCallback((grid: (string | null)[]) => {
+    // Check for triangle patterns
+    const triangles = [
+      [0, 1, 3], // Top-left
+      [1, 2, 5], // Top-right
+      [3, 6, 7], // Bottom-left
+      [5, 7, 8]  // Bottom-right
+    ];
+    
+    return triangles.some(triangle => 
+      triangle.every(idx => grid[idx] !== null)
+    );
+  }, []);
+
+  const checkCirclePattern = useCallback((grid: (string | null)[]) => {
+    // Check for a circle pattern (center empty, surrounding cells filled)
+    return grid[4] === null && 
+      grid[1] !== null && grid[3] !== null && 
+      grid[5] !== null && grid[7] !== null;
+  }, []);
+  
+  const handleCraft = useCallback(() => {
+    // Try to find a matching recipe if none is selected
+    const recipeToUse = selectedRecipe || findMatchingRecipe();
+    
+    if (!recipeToUse) {
+      setCraftingNotification({
+        type: 'error',
+        message: 'No matching recipe found for the items in the grid.'
+      });
       return;
     }
+    
+    // Verify the output item exists
+    const craftedItemId = recipeToUse.output;
+    const outputItem = gameItems[craftedItemId];
+    
+    if (!outputItem) {
+      console.error(`Output item not found: ${craftedItemId} for recipe ${recipeToUse.id}`);
+      setCraftingNotification({
+        type: 'error',
+        message: `Error: Output item "${craftedItemId}" not found. Please report this bug.`
+      });
+      return;
+    }
+    
+    // Check if player has enough magic points (only if there's a magic cost)
+    if (magicCost > 0 && character.magicPoints < magicCost) {
+      setCraftingNotification({
+        type: 'error',
+        message: `Not enough magic points. Need ${magicCost} MP, but you only have ${character.magicPoints} MP.`
+      });
+      return;
+    }
+    
+    // Always consume resources regardless of success or failure
+    // Create a copy of the inventory to work with
+    const updatedInventory = [...inventory];
+    
+    // Remove the items from the grid from the inventory
+    const gridItems = grid.filter(item => item !== null) as string[];
+    gridItems.forEach(itemId => {
+      const itemIndex = updatedInventory.findIndex(item => item.id === itemId);
+      if (itemIndex !== -1) {
+        updatedInventory[itemIndex].quantity -= 1;
+        if (updatedInventory[itemIndex].quantity <= 0) {
+          updatedInventory.splice(itemIndex, 1);
+        }
+      }
+    });
     
     // Check if crafting succeeds based on success chance
     const roll = Math.random() * 100;
     const craftingSucceeds = roll <= successChance;
     
+    // Get the pattern used in crafting
+    const patternUsed = getGridPattern(grid);
+    
     if (craftingSucceeds) {
-      // Add crafted item to inventory
-      const updatedInventory = [...inventory];
-      const existingItem = updatedInventory.find(item => item.id === selectedRecipe.output);
+      // Add crafted item to inventory with pattern information
+      const existingItem = updatedInventory.find(item => item.id === craftedItemId);
       
       if (existingItem) {
         existingItem.quantity += 1;
       } else {
-        updatedInventory.push({ id: selectedRecipe.output, quantity: 1 });
+        updatedInventory.push({ 
+          id: craftedItemId, 
+          quantity: 1,
+          craftingPattern: patternUsed // Store the pattern used
+        });
       }
       
       // Calculate experience gain
-      const expGain = selectedRecipe.experienceGain || {};
+      const expGain = recipeToUse.experienceGain || {};
       
       // Update character stats
       const updatedCharacter = {
         ...character,
-        inventory: updatedInventory,
-        magicPoints: Math.max(0, character.magicPoints - magicCost),
+        magicPoints: magicCost > 0 ? Math.max(0, character.magicPoints - magicCost) : character.magicPoints,
         craftingExperience: {
           metalworking: character.craftingExperience.metalworking + (expGain.metalworking || 0),
           magicworking: character.craftingExperience.magicworking + (expGain.magicworking || 0),
@@ -300,20 +512,47 @@ export const useCrafting = ({
       checkLevelUp("magicworking");
       checkLevelUp("spellcraft");
       
-      // Update character
-      onUpdateCharacter(updatedCharacter);
+      // Update character and inventory
+      onUpdateCharacter(updatedCharacter, updatedInventory);
       
-      // Clear the grid
-      clearGrid();
+      // Show success notification
+      setCraftingNotification({
+        type: 'success',
+        message: `Successfully crafted ${outputItem.name}!`
+      });
+      
+      // Check if this was a secret recipe discovery
+      if (recipeToUse.isSecret) {
+        setCraftingNotification({
+          type: 'success',
+          message: `You discovered a secret recipe: ${outputItem.name}!`
+        });
+        // Here you would also update the discovered recipes in localStorage or state
+      }
     } else {
       // Crafting failed
-      // Consume magic points anyway
-      onUpdateCharacter({
-        ...character,
-        magicPoints: Math.max(0, character.magicPoints - magicCost)
+      // Consume magic points if there's a magic cost
+      if (magicCost > 0) {
+        const updatedCharacter = {
+          ...character,
+          magicPoints: Math.max(0, character.magicPoints - magicCost)
+        };
+        onUpdateCharacter(updatedCharacter, updatedInventory);
+      } else {
+        // Just update the inventory if no magic cost
+        onUpdateCharacter(character, updatedInventory);
+      }
+      
+      // Show failure notification
+      setCraftingNotification({
+        type: 'error',
+        message: 'Crafting failed! Resources were consumed, but no item was created.'
       });
     }
-  }, [selectedRecipe, character, inventory, magicCost, successChance, onUpdateCharacter]);
+    
+    // Clear the grid regardless of success or failure
+    clearGrid();
+  }, [selectedRecipe, findMatchingRecipe, character, inventory, grid, magicCost, successChance, onUpdateCharacter, gameItems, clearGrid, getGridPattern]);
   
   const handleQuickCraft = useCallback((recipeId: string) => {
     const recipe = recipes.find(r => r.id === recipeId);
@@ -386,9 +625,76 @@ export const useCrafting = ({
     onUpdateCharacter(updatedCharacter);
   }, [recipes, inventory, character, onUpdateCharacter]);
   
-  const clearGrid = useCallback(() => {
-    setGrid(Array(9).fill(null));
-  }, []);
+  // Move the handleQuickAdd function after the clearGrid function
+  const handleQuickAdd = useCallback((recipe: Recipe) => {
+    if (!recipe) return;
+    
+    // Check if we have all the required ingredients
+    const requiredItems: Record<string, number> = {};
+    recipe.inputs.forEach(itemId => {
+      requiredItems[itemId] = (requiredItems[itemId] || 0) + 1;
+    });
+    
+    const hasAllIngredients = Object.entries(requiredItems).every(([itemId, count]) => {
+      const inventoryItem = inventory.find(item => item.id === itemId);
+      return inventoryItem && inventoryItem.quantity >= count;
+    });
+    
+    if (!hasAllIngredients) {
+      setCraftingNotification({
+        type: 'error',
+        message: 'You don\'t have all the required ingredients for this recipe.'
+      });
+      return;
+    }
+    
+    // Clear the grid first
+    clearGrid();
+    
+    // Create a new grid with the recipe ingredients
+    const newGrid = Array(9).fill(null);
+    
+    // Place items in the grid based on recipe inputs
+    recipe.inputs.forEach((itemId, index) => {
+      if (index < 9) {
+        newGrid[index] = itemId;
+      }
+    });
+    
+    // Update the grid
+    setGrid(newGrid);
+    
+    // Update the inventory
+    const updatedInventory = [...inventory];
+    
+    // Remove used items from inventory
+    recipe.inputs.forEach(itemId => {
+      const itemIndex = updatedInventory.findIndex(item => item.id === itemId);
+      
+      if (itemIndex !== -1) {
+        updatedInventory[itemIndex].quantity -= 1;
+        
+        // Remove item if quantity is 0
+        if (updatedInventory[itemIndex].quantity <= 0) {
+          updatedInventory.splice(itemIndex, 1);
+        }
+      }
+    });
+    
+    // Update character with new inventory
+    onUpdateCharacter(
+      character,
+      updatedInventory
+    );
+    
+    // Set the selected recipe
+    setSelectedRecipe(recipe);
+    
+    setCraftingNotification({
+      type: 'success',
+      message: `Ingredients for ${recipe.output} placed on the grid.`
+    });
+  }, [inventory, character, onUpdateCharacter, clearGrid]);
   
   const handleConsumeMagicPotion = useCallback(() => {
     const potionIndex = inventory.findIndex(item => item.id === "mana_potion");
@@ -539,6 +845,16 @@ export const useCrafting = ({
     }
   }, [inventory, gameItems, handleEquipItem]);
   
+  // Clear notification after a delay
+  useEffect(() => {
+    if (craftingNotification) {
+      const timer = setTimeout(() => {
+        setCraftingNotification(null);
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [craftingNotification]);
+  
   return {
     // Grid state
     grid,
@@ -551,6 +867,9 @@ export const useCrafting = ({
     // Recipe state
     selectedRecipe,
     
+    // Notification state
+    craftingNotification,
+    
     // Handlers
     handleDragStart,
     handleDropOnGrid,
@@ -558,6 +877,7 @@ export const useCrafting = ({
     handleControlChange,
     handleCraft,
     handleQuickCraft,
+    handleQuickAdd,
     clearGrid,
     handleConsumeMagicPotion,
     handleEquipItem,
@@ -569,6 +889,9 @@ export const useCrafting = ({
     successChance,
     hasCursedRing,
     manaPotionCount,
-    magicCost
+    magicCost,
+    
+    // Helper functions
+    findMatchingRecipe
   };
 }; 

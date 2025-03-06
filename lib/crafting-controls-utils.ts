@@ -37,8 +37,15 @@ export const getLevelText = (control: CraftingControlType, value: number) => {
  */
 export const getMagicCost = (magicValue: number) => {
   const baseCost = craftingControls.magic.magicCost || 0;
-  const magicLevel = Math.floor(magicValue / 20); // 0-5 scale
-  return baseCost * (magicLevel + 1);
+  
+  // Calculate cost based on percentage of the slider
+  // This makes it scale better with the character's magic points
+  // At 0%, cost is baseCost
+  // At 100%, cost is 6 * baseCost
+  const percentage = magicValue / 100;
+  const multiplier = 1 + (percentage * 5); // Scale from 1x to 6x
+  
+  return Math.floor(baseCost * multiplier);
 };
 
 /**
@@ -58,11 +65,11 @@ export const getControlsToDisplay = (hasCursedRing: boolean) => {
 export const getControlTooltip = (controlType: CraftingControlType) => {
   switch (controlType) {
     case "magic":
-      return "Increases the magical power but consumes more magic points.";
+      return "Determines the magical effects applied to the crafted item. Higher values add stronger magical properties but consume more magic points.";
     case "stability":
-      return "Controls how stable the magical energies are during crafting.";
+      return "Controls the stability of magical energies. Different stability levels provide different effects based on the item type being crafted.";
     case "curse":
-      return "Infuses dark energies that can provide powerful but dangerous effects.";
+      return "Infuses dark energies that provide powerful but potentially dangerous effects. Requires a Cursed Energy Ring to use.";
     default:
       return "";
   }

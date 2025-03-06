@@ -4,7 +4,7 @@ import { motion } from "framer-motion";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { Zap } from "lucide-react";
+import { Zap, Grid } from "lucide-react";
 import type { Item } from "@/components/item-slot";
 import type { Recipe } from "@/components/recipe-book";
 import { getCategoryIcon, calculateSuccessChance, hasResourcesForRecipe } from "@/lib/recipe-utils";
@@ -26,6 +26,7 @@ interface RecipeListItemProps {
   isSelected: boolean;
   onSelect: (recipe: Recipe) => void;
   onQuickCraft: (recipeId: string) => void;
+  onQuickAdd?: (recipe: Recipe) => void;
 }
 
 export default function RecipeListItem({
@@ -35,7 +36,8 @@ export default function RecipeListItem({
   inventory,
   isSelected,
   onSelect,
-  onQuickCraft
+  onQuickCraft,
+  onQuickAdd
 }: RecipeListItemProps) {
   const successChance = calculateSuccessChance(recipe, characterStats);
   const canQuickCraft = hasResourcesForRecipe(recipe, inventory);
@@ -90,13 +92,27 @@ export default function RecipeListItem({
                     <Zap className="w-3 h-3 mr-1" />
                     Quick Craft
                   </Button>
+                  
+                  {onQuickAdd && (
+                    <Button 
+                      size="sm" 
+                      variant="outline" 
+                      className="h-7 px-2 text-xs ml-2"
+                      disabled={!canQuickCraft}
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        onQuickAdd(recipe);
+                      }}
+                    >
+                      <Grid className="w-3 h-3 mr-1" />
+                      Quick Add
+                    </Button>
+                  )}
                 </div>
               </TooltipTrigger>
               <TooltipContent side="left" className="max-w-[200px]">
                 <p className="text-xs">
                   Quick crafting uses basic settings and won't apply special effects from crafting controls.
-                  {recipe.temperature && " Temperature effects won't be applied."}
-                  {recipe.magicCost && " Magic enhancements won't be applied."}
                 </p>
               </TooltipContent>
             </Tooltip>

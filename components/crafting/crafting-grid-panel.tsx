@@ -6,6 +6,7 @@ import { Recipe } from "@/components/recipe-book"
 interface CraftingGridPanelProps {
   grid: (string | null)[]
   onDrop: (index: number) => void
+  onDragStart?: (item: string, source: "grid", index: number) => void
   isDraggingOver: boolean
   highlightedCells: number[]
   selectedRecipe: Recipe | null
@@ -14,6 +15,7 @@ interface CraftingGridPanelProps {
 export default function CraftingGridPanel({
   grid,
   onDrop,
+  onDragStart,
   isDraggingOver,
   highlightedCells,
   selectedRecipe
@@ -44,6 +46,7 @@ export default function CraftingGridPanel({
         <CraftingGrid
           grid={grid}
           onDrop={onDrop}
+          onDragStart={onDragStart}
           itemType={getItemType()}
           isDraggingOver={isDraggingOver}
           highlightedCells={highlightedCells}

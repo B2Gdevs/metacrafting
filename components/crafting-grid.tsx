@@ -9,6 +9,7 @@ import PatternInfo from "./crafting/pattern-info";
 interface CraftingGridProps {
   grid: (string | null)[];
   onDrop: (index: number) => void;
+  onDragStart?: (item: string, source: "grid", index: number) => void;
   itemType: string;
   isDraggingOver: boolean;
   highlightedCells?: number[];
@@ -17,6 +18,7 @@ interface CraftingGridProps {
 export default function CraftingGrid({ 
   grid, 
   onDrop, 
+  onDragStart,
   itemType, 
   isDraggingOver,
   highlightedCells = []
@@ -48,6 +50,7 @@ export default function CraftingGrid({
             index={index}
             item={grid[index]}
             onDrop={onDrop}
+            onDragStart={onDragStart}
             isHighlighted={highlightedCells.includes(index)}
             patternHighlight={patternHighlights[index]}
           />

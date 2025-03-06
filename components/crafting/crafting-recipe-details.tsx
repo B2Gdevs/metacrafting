@@ -1,12 +1,10 @@
 "use client"
 
-import { Badge } from "@/components/ui/badge"
-import { Button } from "@/components/ui/button"
+import { Item, ItemRarity } from "@/components/item-slot"
 import { Recipe } from "@/components/recipe-book"
-import { Item } from "@/components/item-slot"
-import ItemSlot from "@/components/item-slot"
+import { Button } from "@/components/ui/button"
 import { CraftingControlType } from "@/lib/recipes"
-import { AlertTriangle, Check, X } from "lucide-react"
+import Image from "next/image"
 
 interface CraftingRecipeDetailsProps {
   recipe: Recipe | null
@@ -18,7 +16,21 @@ interface CraftingRecipeDetailsProps {
   onCraft: () => void
   onClearGrid: () => void
   hasRequiredItems: boolean
+  grid: (string | null)[]
+  findMatchingRecipe?: () => Recipe | null
 }
+
+// Helper function to get CSS class based on item rarity
+const getRarityClass = (rarity?: ItemRarity): string => {
+  switch (rarity) {
+    case "uncommon": return "text-green-400 border-green-600";
+    case "rare": return "text-blue-400 border-blue-600";
+    case "epic": return "text-purple-400 border-purple-600";
+    case "legendary": return "text-amber-400 border-amber-600";
+    case "mythic": return "text-rose-400 border-rose-600";
+    default: return "text-gray-400 border-gray-600";
+  }
+};
 
 export default function CraftingRecipeDetails({
   recipe,
@@ -29,160 +41,74 @@ export default function CraftingRecipeDetails({
   magicPoints,
   onCraft,
   onClearGrid,
-  hasRequiredItems
+  hasRequiredItems,
+  grid
 }: CraftingRecipeDetailsProps) {
-  if (!recipe) {
-    return (
-      <div className="bg-gray-800 rounded-lg border border-gray-700 p-6 text-center">
-        <div className="text-gray-400">Select a recipe to view details</div>
-      </div>
-    )
+  // If no items in grid, don't show anything
+  if (!grid.some(item => item !== null)) {
+    return null;
   }
-
-  const outputItem = gameItems[recipe.output]
-  const canCraft = hasRequiredItems && magicPoints >= magicCost
-
+  
+  // Get output item if recipe is selected
+  const outputItem = recipe ? gameItems[recipe.output] : null;
+  const canCraft = recipe ? (hasRequiredItems && magicPoints >= magicCost) : grid.some(item => item !== null);
+  
   return (
-    <div className="bg-gray-800 rounded-lg border border-gray-700 p-6">
-      <div className="flex items-start justify-between mb-4">
-        <div>
-          <h2 className="text-xl font-bold text-amber-400">{outputItem.name}</h2>
-          <p className="text-gray-400 mt-1">{recipe.description}</p>
-        </div>
-        <div className="flex flex-col items-end">
-          <Badge variant="outline" className={`mb-2 ${successChance >= 75 ? 'bg-green-900/30 text-green-400' : successChance >= 50 ? 'bg-amber-900/30 text-amber-400' : 'bg-red-900/30 text-red-400'}`}>
-            {successChance}% Success Chance
-          </Badge>
-          <Badge variant="outline" className={`${magicPoints >= magicCost ? 'bg-blue-900/30 text-blue-400' : 'bg-red-900/30 text-red-400'}`}>
-            {magicCost} Magic Cost
-          </Badge>
-        </div>
-      </div>
-
-      <div className="grid grid-cols-2 gap-4 mb-6">
-        <div>
-          <h3 className="text-sm font-medium text-gray-300 mb-2">Required Skills</h3>
-          <div className="space-y-1">
-            {recipe.requiredStats.metalworking && (
-              <div className="flex justify-between text-xs">
-                <span>Metalworking</span>
-                <span className="text-amber-400">Level {recipe.requiredStats.metalworking}</span>
-              </div>
-            )}
-            {recipe.requiredStats.magicworking && (
-              <div className="flex justify-between text-xs">
-                <span>Magicworking</span>
-                <span className="text-purple-400">Level {recipe.requiredStats.magicworking}</span>
-              </div>
-            )}
-            {recipe.requiredStats.spellcraft && (
-              <div className="flex justify-between text-xs">
-                <span>Spellcraft</span>
-                <span className="text-cyan-400">Level {recipe.requiredStats.spellcraft}</span>
-              </div>
-            )}
-          </div>
-        </div>
-
-        <div>
-          <h3 className="text-sm font-medium text-gray-300 mb-2">Experience Gain</h3>
-          <div className="space-y-1">
-            {recipe.experienceGain?.metalworking && recipe.experienceGain.metalworking > 0 && (
-              <div className="flex justify-between text-xs">
-                <span>Metalworking</span>
-                <span className="text-amber-400">+{recipe.experienceGain.metalworking} XP</span>
-              </div>
-            )}
-            {recipe.experienceGain?.magicworking && recipe.experienceGain.magicworking > 0 && (
-              <div className="flex justify-between text-xs">
-                <span>Magicworking</span>
-                <span className="text-purple-400">+{recipe.experienceGain.magicworking} XP</span>
-              </div>
-            )}
-            {recipe.experienceGain?.spellcraft && recipe.experienceGain.spellcraft > 0 && (
-              <div className="flex justify-between text-xs">
-                <span>Spellcraft</span>
-                <span className="text-cyan-400">+{recipe.experienceGain.spellcraft} XP</span>
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-300 mb-2">Required Ingredients</h3>
-        <div className="grid grid-cols-3 gap-2">
-          {recipe.inputs.map((itemId, index) => (
-            <div key={`${itemId}-${index}`} className="flex flex-col items-center">
-              <ItemSlot 
-                item={gameItems[itemId]} 
-                onDragStart={() => {}} 
-                size="small"
-              />
-              <div className="text-xs text-gray-400 mt-1">{gameItems[itemId]?.name}</div>
+    <div className="bg-gray-800 rounded-lg border border-gray-700 p-4">
+      <div className="flex items-center justify-between mb-4">
+        {outputItem && (
+          <div className="flex items-center gap-3">
+            <div className={`w-12 h-12 rounded-md border ${getRarityClass(outputItem.rarity)} flex items-center justify-center`}>
+              {outputItem.image && (
+                <Image 
+                  src={outputItem.image} 
+                  alt={outputItem.name} 
+                  width={36} 
+                  height={36} 
+                />
+              )}
             </div>
-          ))}
-        </div>
-      </div>
-
-      <div className="mb-6">
-        <h3 className="text-sm font-medium text-gray-300 mb-2">Output</h3>
-        <div className="flex items-center">
-          <div className="mr-4">
-            <ItemSlot 
-              item={outputItem} 
-              onDragStart={() => {}} 
-            />
-          </div>
-          <div>
-            <div className="text-sm font-medium">{outputItem.name}</div>
-            <div className="text-xs text-gray-400 mt-1">{outputItem.description}</div>
-          </div>
-        </div>
-      </div>
-
-      {!hasRequiredItems && (
-        <div className="bg-red-900/20 border border-red-900 rounded-md p-3 mb-4 flex items-start">
-          <AlertTriangle className="w-4 h-4 text-red-400 mr-2 mt-0.5" />
-          <div>
-            <div className="text-sm font-medium text-red-400">Missing Ingredients</div>
-            <div className="text-xs text-gray-300 mt-1">
-              You don't have all the required ingredients for this recipe.
+            <div>
+              <h4 className={`text-md font-medium ${getRarityClass(outputItem.rarity)}`}>{outputItem.name}</h4>
+              <div className="flex items-center gap-2 text-xs">
+                <span className={successChance >= 75 ? 'text-green-400' : successChance >= 50 ? 'text-yellow-400' : 'text-red-400'}>
+                  {successChance}% Success
+                </span>
+                {magicCost > 0 && (
+                  <span className={magicPoints < magicCost ? 'text-red-400' : 'text-blue-400'}>
+                    {magicCost} MP
+                  </span>
+                )}
+              </div>
             </div>
           </div>
+        )}
+        
+        <div className="flex gap-2">
+          <Button 
+            variant="default" 
+            className="bg-amber-600 hover:bg-amber-700 text-white"
+            onClick={onCraft}
+            disabled={recipe ? !canCraft : false}
+          >
+            {outputItem ? `Craft ${outputItem.name}` : "Craft Item"}
+          </Button>
+          <Button 
+            variant="outline" 
+            className="border-amber-700 text-amber-400 hover:bg-amber-900/20"
+            onClick={onClearGrid}
+          >
+            Clear Grid
+          </Button>
+        </div>
+      </div>
+      
+      {!canCraft && recipe && (
+        <div className="text-xs text-red-400 mt-2">
+          {!hasRequiredItems && "Missing required ingredients. "}
+          {magicPoints < magicCost && `Need ${magicCost} MP, but you only have ${magicPoints} MP.`}
         </div>
       )}
-
-      {magicPoints < magicCost && (
-        <div className="bg-red-900/20 border border-red-900 rounded-md p-3 mb-4 flex items-start">
-          <AlertTriangle className="w-4 h-4 text-red-400 mr-2 mt-0.5" />
-          <div>
-            <div className="text-sm font-medium text-red-400">Insufficient Magic</div>
-            <div className="text-xs text-gray-300 mt-1">
-              You need {magicCost} magic points to craft this item. Current: {magicPoints}
-            </div>
-          </div>
-        </div>
-      )}
-
-      <div className="flex space-x-2">
-        <Button 
-          onClick={onCraft} 
-          disabled={!canCraft}
-          className="flex-1"
-        >
-          <Check className="mr-2 h-4 w-4" />
-          Craft Item
-        </Button>
-        <Button 
-          variant="outline" 
-          onClick={onClearGrid}
-          className="flex-1"
-        >
-          <X className="mr-2 h-4 w-4" />
-          Clear Grid
-        </Button>
-      </div>
     </div>
   )
 } 

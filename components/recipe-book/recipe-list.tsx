@@ -22,6 +22,7 @@ interface RecipeListProps {
   selectedRecipe: Recipe | null;
   onSelectRecipe: (recipe: Recipe) => void;
   onQuickCraft: (recipeId: string) => void;
+  onQuickAdd?: (recipe: Recipe) => void;
 }
 
 export default function RecipeList({
@@ -35,6 +36,7 @@ export default function RecipeList({
   selectedRecipe,
   onSelectRecipe,
   onQuickCraft,
+  onQuickAdd,
 }: RecipeListProps) {
   const filteredRecipes = filterRecipes(
     recipes,
@@ -60,6 +62,7 @@ export default function RecipeList({
           isSelected={selectedRecipe?.id === recipe.id}
           onSelect={onSelectRecipe}
           onQuickCraft={onQuickCraft}
+          onQuickAdd={onQuickAdd}
         />
       ))}
     </div>

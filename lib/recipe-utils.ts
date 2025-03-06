@@ -139,13 +139,12 @@ export const filterRecipes = (
   searchTerm: string,
   activeCategory: RecipeCategory,
   discoveredSecretRecipes: string[]
-) => {
+): Recipe[] => {
   return recipes.filter(
     (recipe) =>
-      // Only show non-secret recipes or secret recipes that have been discovered
       (!recipe.isSecret || (recipe.isSecret && discoveredSecretRecipes.includes(recipe.id))) &&
       (activeCategory === RECIPE_CATEGORIES.ALL || recipe.category === activeCategory) &&
-      (gameItems[recipe.output].name.toLowerCase().includes(searchTerm.toLowerCase()) ||
+      (gameItems[recipe.output] && gameItems[recipe.output].name.toLowerCase().includes(searchTerm.toLowerCase()) ||
         recipe.description.toLowerCase().includes(searchTerm.toLowerCase()))
   );
 };

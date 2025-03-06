@@ -70,29 +70,7 @@ export default function RecipeDetails({ recipe, gameItems, characterStats }: Rec
         </div>
 
         <div className="grid grid-cols-2 gap-4">
-          {recipe.temperature && (
-            <div className="bg-gray-800 p-2 rounded border border-gray-700">
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <Sword className="w-3 h-3 text-red-400" />
-                <span>Temperature</span>
-              </div>
-              <div className="flex items-center gap-1 mt-1">
-                <span className="text-sm font-medium">{recipe.temperature}°</span>
-              </div>
-            </div>
-          )}
-
-          {recipe.magicCost && (
-            <div className="bg-gray-800 p-2 rounded border border-gray-700">
-              <div className="flex items-center gap-1 text-xs text-gray-400">
-                <Sparkles className="w-3 h-3 text-blue-400" />
-                <span>Magic Cost</span>
-              </div>
-              <div className="flex items-center gap-1 mt-1">
-                <span className="text-sm font-medium">{recipe.magicCost} MP</span>
-              </div>
-            </div>
-          )}
+          {/* Magic cost section removed since it's not in the Recipe type */}
         </div>
 
         <RecipeSkills recipe={recipe} characterStats={characterStats} />

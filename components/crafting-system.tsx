@@ -1,26 +1,18 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
-import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
-import { Book, HelpCircle, Sparkles, Filter, ArrowDownUp, Flame, X, AlertTriangle } from "lucide-react"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Badge } from "@/components/ui/badge"
-import { Alert, AlertDescription } from "@/components/ui/alert"
-import ItemSlot, { type Item, type ItemType, type ItemRarity } from "./item-slot"
-import RecipeBook, { type Recipe, type RecipeCategory } from "./recipe-book"
-import CharacterSheet, { type CharacterStats } from "./character-sheet"
-import CraftingControls from "@/components/crafting-controls"
 import { gameItems } from "@/lib/items"
-import { recipes, CraftingControlType } from "@/lib/recipes"
-import { EquipmentSlot } from "@/lib/items"
-import { Slider } from "@/components/ui/slider"
+import { recipes } from "@/lib/recipes"
+import { AnimatePresence, motion } from "framer-motion"
+import { AlertTriangle, Book, CheckCircle, Info, Sparkles } from "lucide-react"
+import { useState } from "react"
+import { type CharacterStats } from "./character-sheet"
+import RecipeBook from "./recipe-book"
 
 // Import new components
 import CraftingCharacterStats from "./crafting/crafting-character-stats"
-import CraftingRecipeDetails from "./crafting/crafting-recipe-details"
 import CraftingControlsPanel from "./crafting/crafting-controls-panel"
 import CraftingGridPanel from "./crafting/crafting-grid-panel"
 import CraftingInventory from "./crafting/crafting-inventory"
@@ -31,67 +23,29 @@ import { useCrafting } from "@/hooks/use-crafting"
 type InventoryItem = {
   id: string
   quantity: number
+  craftingPattern?: string
 }
 
-export default function CraftingSystem() {
-  // Character state
-  const [character, setCharacter] = useState<CharacterStats>({
-    name: "Craftmaster",
-    level: 5,
-    experience: 240,
-    experienceToNextLevel: 500,
-    strength: 8,
-    speed: 6,
-    health: 100,
-    maxHealth: 100,
-    magicPoints: 50,
-    maxMagicPoints: 50,
-    image: "/placeholder-user.jpg",
-    gold: 500,
-    gems: 10,
-    craftingStats: {
-      metalworking: 3,
-      magicworking: 2,
-      spellcraft: 2,
-    },
-    craftingExperience: {
-      metalworking: 150,
-      magicworking: 80,
-      spellcraft: 100,
-    },
-    equipment: {
-      head: "",
-      chest: "",
-      legs: "",
-      feet: "",
-      hands: "",
-      rings: ["", "", "", "", "", "", "", "", "", ""],
-      weapon: "",
-      offhand: "",
-      neck: "",
-    },
-  })
+interface CraftingSystemProps {
+  character: CharacterStats;
+  inventory: InventoryItem[];
+  onUpdateCharacter: (updatedCharacter: CharacterStats) => void;
+  onUpdateInventory: (updatedInventory: InventoryItem[]) => void;
+  onConsumeMagicPotion: () => boolean;
+}
 
-  // Inventory state with quantities
-  const [inventory, setInventory] = useState<InventoryItem[]>([
-    { id: "iron_ingot", quantity: 10 },
-    { id: "copper_ingot", quantity: 8 },
-    { id: "silver_ingot", quantity: 5 },
-    { id: "gold_ingot", quantity: 3 },
-    { id: "mithril_ingot", quantity: 2 },
-    { id: "leather", quantity: 12 },
-    { id: "cloth", quantity: 15 },
-    { id: "wood", quantity: 20 },
-    { id: "gemstone", quantity: 7 },
-    { id: "magic_essence", quantity: 5 },
-    { id: "mana_crystal", quantity: 3 },
-    { id: "dragon_scale", quantity: 1 },
-    { id: "phoenix_feather", quantity: 1 },
-    { id: "mana_potion", quantity: 3 },
-  ])
-
+export default function CraftingSystem({
+  character,
+  inventory,
+  onUpdateCharacter,
+  onUpdateInventory,
+  onConsumeMagicPotion
+}: CraftingSystemProps) {
   // Active tab state
   const [activeTab, setActiveTab] = useState("crafting")
+
+  // Recipe book dialog state
+  const [isRecipeBookOpen, setIsRecipeBookOpen] = useState(false)
 
   // Use the crafting hook
   const {
@@ -106,6 +60,9 @@ export default function CraftingSystem() {
     // Recipe state
     selectedRecipe,
     
+    // Notification state
+    craftingNotification,
+    
     // Handlers
     handleDragStart,
     handleDropOnGrid,
@@ -113,6 +70,7 @@ export default function CraftingSystem() {
     handleControlChange,
     handleCraft,
     handleQuickCraft,
+    handleQuickAdd,
     clearGrid,
     handleConsumeMagicPotion,
     handleEquipItem,
@@ -124,17 +82,20 @@ export default function CraftingSystem() {
     successChance,
     hasCursedRing,
     manaPotionCount,
-    magicCost
+    magicCost,
+    
+    // Helper functions
+    findMatchingRecipe
   } = useCrafting({
     character,
     inventory,
     gameItems,
     recipes,
     onUpdateCharacter: (updatedCharacter, updatedInventory) => {
-      setCharacter(updatedCharacter);
+      onUpdateCharacter(updatedCharacter);
       // If inventory is provided, update it separately
       if (updatedInventory) {
-        setInventory(updatedInventory);
+        onUpdateInventory(updatedInventory);
       }
     }
   });
@@ -162,121 +123,154 @@ export default function CraftingSystem() {
         <TooltipProvider>
           <Tooltip>
             <TooltipTrigger asChild>
-              <div className="ml-2 cursor-help">
-                <HelpCircle className="h-5 w-5 text-gray-500" />
-              </div>
+              <Info className="ml-2 h-4 w-4 text-gray-400 cursor-help" />
             </TooltipTrigger>
             <TooltipContent side="right" className="max-w-md">
-              <p>
-                Craft powerful items by placing ingredients in the grid and adjusting the crafting controls.
-                Different patterns in the grid will provide different bonuses to your crafted items.
+              <p className="text-sm">
+                Drag ingredients from your inventory to the crafting grid. Select recipes from the recipe book to see what you can craft.
               </p>
             </TooltipContent>
           </Tooltip>
         </TooltipProvider>
+        
+        {/* Recipe Book Dialog Trigger */}
+        <Dialog open={isRecipeBookOpen} onOpenChange={setIsRecipeBookOpen}>
+          <DialogTrigger asChild>
+            <Button variant="ghost" className="ml-auto">
+              <Book className="h-5 w-5 text-amber-400" />
+              <span className="ml-2">Recipe Book</span>
+            </Button>
+          </DialogTrigger>
+          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+            <RecipeBook 
+              recipes={recipes} 
+              gameItems={gameItems} 
+              onSelectRecipe={(recipe) => {
+                setSelectedRecipe(recipe);
+              }}
+              onQuickCraft={(recipeId) => {
+                handleQuickCraft(recipeId);
+                setIsRecipeBookOpen(false);
+              }}
+              onQuickAdd={(recipe) => {
+                handleQuickAdd(recipe);
+                setIsRecipeBookOpen(false);
+              }}
+              inventory={inventory}
+            />
+          </DialogContent>
+        </Dialog>
       </h1>
 
-      <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
-        <TabsList className="bg-gray-800 p-1">
-          <TabsTrigger value="crafting" className="data-[state=active]:bg-gray-700">
-            <Sparkles className="mr-2 h-4 w-4" />
-            Crafting
-          </TabsTrigger>
-          <TabsTrigger value="recipes" className="data-[state=active]:bg-gray-700">
-            <Book className="mr-2 h-4 w-4" />
-            Recipe Book
-          </TabsTrigger>
-          <TabsTrigger value="character" className="data-[state=active]:bg-gray-700">
-            <HelpCircle className="mr-2 h-4 w-4" />
-            Character
-          </TabsTrigger>
-        </TabsList>
+      {/* Crafting Notification */}
+      <AnimatePresence>
+        {craftingNotification && (
+          <motion.div
+            initial={{ opacity: 0, y: -20 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: -20 }}
+            className={`mb-4 p-3 rounded-md flex items-center ${
+              craftingNotification.type === 'success' 
+                ? 'bg-green-900/30 border border-green-700' 
+                : 'bg-red-900/30 border border-red-700'
+            }`}
+          >
+            {craftingNotification.type === 'success' ? (
+              <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
+            ) : (
+              <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
+            )}
+            <p className={`text-sm ${
+              craftingNotification.type === 'success' ? 'text-green-300' : 'text-red-300'
+            }`}>
+              {craftingNotification.message}
+            </p>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
-        <TabsContent value="crafting" className="space-y-4">
-          <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-            {/* Left Column - Character Stats and Recipe Details */}
-            <div className="space-y-6">
-              <CraftingCharacterStats
-                character={character}
-                onConsumeMagicPotion={handleConsumeMagicPotion}
-                manaPotionCount={manaPotionCount}
-              />
-              
-              <CraftingRecipeDetails
-                recipe={selectedRecipe}
-                gameItems={gameItems}
-                successChance={successChance}
-                controlValues={controlValues}
-                magicCost={magicCost}
-                magicPoints={character.magicPoints}
-                onCraft={handleCraft}
-                onClearGrid={clearGrid}
-                hasRequiredItems={hasRequiredItems()}
-              />
-            </div>
+      <div className="space-y-4">
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+          {/* Left Column - Controls and Character Stats */}
+          <div className="space-y-6">
+            {/* Crafting Controls at the top */}
+            <CraftingControlsPanel
+              controlValues={controlValues}
+              onControlChange={handleControlChange}
+              selectedRecipe={selectedRecipe}
+              hasCursedRing={hasCursedRing}
+              magicPoints={character.magicPoints}
+              maxMagicPoints={character.maxMagicPoints}
+            />
             
-            {/* Middle Column - Crafting Grid and Controls */}
-            <div className="space-y-6">
-              <CraftingGridPanel
-                grid={grid}
-                onDrop={handleDropOnGrid}
-                isDraggingOver={isDraggingOver}
-                highlightedCells={highlightedCells}
-                selectedRecipe={selectedRecipe}
-              />
-              
-              <CraftingControlsPanel
-                controlValues={controlValues}
-                onControlChange={handleControlChange}
-                selectedRecipe={selectedRecipe}
-                hasCursedRing={hasCursedRing}
-                magicPoints={character.magicPoints}
-                maxMagicPoints={character.maxMagicPoints}
-              />
-            </div>
-            
-            {/* Right Column - Inventory */}
-            <div>
-              <CraftingInventory
-                inventory={inventory}
-                gameItems={gameItems}
-                onDragStart={handleDragStart}
-                onDropArea={handleDropOnInventory}
-              />
-            </div>
+            {/* Character Stats below controls */}
+            <CraftingCharacterStats
+              character={character}
+              onConsumeMagicPotion={handleConsumeMagicPotion}
+              manaPotionCount={manaPotionCount}
+            />
           </div>
           
-          {/* Crafting Tips */}
-          <Alert className="bg-gray-800 border-amber-900">
-            <AlertDescription className="text-gray-300">
-              <strong className="text-amber-400">Crafting Tip:</strong> Experiment with different ingredient combinations and patterns to discover new recipes and effects.
-            </AlertDescription>
-          </Alert>
-        </TabsContent>
-
-        <TabsContent value="recipes">
-          <RecipeBook
-            recipes={recipes}
-            gameItems={gameItems}
-            characterStats={character}
-            inventory={inventory}
-            onQuickCraft={handleQuickCraft}
-          />
-        </TabsContent>
-
-        <TabsContent value="character">
-          <CharacterSheet
-            character={character}
-            onConsumeMagicPotion={handleConsumeMagicPotion}
-            onUpdateCharacter={setCharacter}
-            manaPotionCount={manaPotionCount}
-            inventory={inventory}
-            gameItems={gameItems}
-            onEquipItem={handleEquipItem}
-            onUnequipItem={handleUnequipItem}
-          />
-        </TabsContent>
-      </Tabs>
+          {/* Right Column - Grid and Inventory side by side */}
+          <div className="space-y-6">
+            {/* Crafting and Clear buttons at the top */}
+            <div className="flex justify-center gap-4 mb-2">
+              <button 
+                className={`px-4 py-2 rounded-md font-medium ${
+                  grid.some(item => item !== null) 
+                    ? 'bg-amber-600 hover:bg-amber-700 text-white' 
+                    : 'bg-gray-700 text-gray-400 cursor-not-allowed'
+                }`}
+                onClick={() => handleCraft()}
+                disabled={!grid.some(item => item !== null)}
+              >
+                Craft Item
+              </button>
+              <button 
+                className="px-4 py-2 rounded-md border border-amber-700 text-amber-400 hover:bg-amber-900/20"
+                onClick={clearGrid}
+              >
+                Clear Grid
+              </button>
+            </div>
+            
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+              {/* Left side - Crafting Grid */}
+              <div>
+                <CraftingGridPanel
+                  grid={grid}
+                  onDrop={handleDropOnGrid}
+                  onDragStart={handleDragStart}
+                  isDraggingOver={isDraggingOver}
+                  highlightedCells={highlightedCells}
+                  selectedRecipe={selectedRecipe}
+                />
+              </div>
+              
+              {/* Right side - Inventory aligned with grid */}
+              <div>
+                <CraftingInventory
+                  inventory={inventory}
+                  gameItems={gameItems}
+                  onDragStart={handleDragStart}
+                  onDropArea={handleDropOnInventory}
+                />
+              </div>
+            </div>
+            
+            {/* Notification area for crafting success/failure */}
+            {craftingNotification && (
+              <div className={`mt-4 p-3 rounded-md ${
+                craftingNotification.type === 'success' 
+                  ? 'bg-green-900/30 border border-green-700 text-green-300' 
+                  : 'bg-red-900/30 border border-red-700 text-red-300'
+              }`}>
+                {craftingNotification.message}
+              </div>
+            )}
+          </div>
+        </div>
+      </div>
     </div>
   )
 }

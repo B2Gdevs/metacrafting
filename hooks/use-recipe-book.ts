@@ -43,7 +43,7 @@ export function useRecipeBook(recipes: Recipe[]) {
   };
 
   // Handle recipe selection
-  const handleSelectRecipe = (recipe: Recipe) => {
+  const handleSelectRecipe = (recipe: Recipe | null) => {
     setSelectedRecipe(recipe);
   };
 

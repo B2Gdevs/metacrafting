@@ -179,7 +179,13 @@ export default function Home() {
             </TabsList>
 
             <TabsContent value="crafting">
-              <CraftingSystem />
+              <CraftingSystem 
+                character={character}
+                inventory={inventory}
+                onUpdateCharacter={handleUpdateCharacter}
+                onUpdateInventory={handleUpdateInventory}
+                onConsumeMagicPotion={handleConsumeMagicPotion}
+              />
             </TabsContent>
 
             <TabsContent value="character">
@@ -200,6 +206,7 @@ export default function Home() {
                 setCharacter={setCharacter}
                 inventory={inventory}
                 setInventory={setInventory}
+                gameItems={gameItems}
               />
             </TabsContent>
 

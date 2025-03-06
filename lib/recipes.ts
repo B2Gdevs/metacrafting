@@ -8,10 +8,15 @@ export type CraftingEffect = {
   durabilityMod?: number;
   elementalEffect?: string;
   specialAbility?: string;
+  curseEffect?: string;
+  requiresMagic?: boolean;
 };
 
 // Define crafting control types
 export type CraftingControlType = "magic" | "stability" | "curse";
+
+// Define stability levels
+export type StabilityLevel = "chaotic" | "unstable" | "balanced" | "stable" | "perfect";
 
 // Define crafting controls that replace temperature
 export const craftingControls: Record<CraftingControlType, {
@@ -28,24 +33,30 @@ export const craftingControls: Record<CraftingControlType, {
     magicCost: 10, // Base magic cost that scales with level
     effects: {
       weapons: [
-        { name: "Arcane Touch", description: "Adds minor magical damage", statBonus: { "Magic Damage": 2 } },
-        { name: "Elemental Binding", description: "Imbues the weapon with elemental energy", elementalEffect: "random" },
-        { name: "Soul Link", description: "Creates a bond between the wielder and the weapon", specialAbility: "Increases damage as wielder loses health" }
+        { name: "Arcane Touch", description: "Adds minor magical damage", statBonus: { "Magic Damage": 2 }, requiresMagic: true },
+        { name: "Elemental Binding", description: "Imbues the weapon with elemental energy", elementalEffect: "random", requiresMagic: true },
+        { name: "Soul Link", description: "Creates a bond between the wielder and the weapon", specialAbility: "Increases damage as wielder loses health", requiresMagic: true }
       ],
       armor: [
-        { name: "Magical Barrier", description: "Creates a magical shield", statBonus: { "Magic Defense": 3 } },
-        { name: "Elemental Resistance", description: "Provides resistance to elemental damage", statBonus: { "Elemental Resistance": 5 } },
-        { name: "Arcane Recovery", description: "Slowly regenerates magic points", statBonus: { "MP Regeneration": 1 } }
+        { name: "Magical Barrier", description: "Creates a magical shield", statBonus: { "Magic Defense": 3 }, requiresMagic: true },
+        { name: "Elemental Resistance", description: "Provides resistance to elemental damage", statBonus: { "Elemental Resistance": 5 }, requiresMagic: true },
+        { name: "Arcane Recovery", description: "Slowly regenerates magic points", statBonus: { "MP Regeneration": 1 }, requiresMagic: true }
       ],
       potions: [
-        { name: "Extended Duration", description: "Effects last longer", statBonus: { "Duration": 30 } },
-        { name: "Potency", description: "Increases the potion's effect", statBonus: { "Effect Strength": 25 } },
-        { name: "Purity", description: "Removes negative side effects", specialAbility: "No side effects" }
+        { name: "Extended Duration", description: "Effects last longer", statBonus: { "Duration": 30 }, requiresMagic: true },
+        { name: "Potency", description: "Increases the potion's effect", statBonus: { "Effect Strength": 25 }, requiresMagic: true },
+        { name: "Purity", description: "Removes negative side effects", specialAbility: "No side effects", requiresMagic: true }
       ],
       spellcraft: [
-        { name: "Focused Energy", description: "Increases spell damage", statBonus: { "Spell Damage": 15 } },
-        { name: "Mana Efficiency", description: "Reduces mana cost", statBonus: { "Mana Cost": -10 } },
-        { name: "Spell Mastery", description: "Improves spell control", specialAbility: "Increased area of effect" }
+        { name: "Focused Energy", description: "Increases spell damage", statBonus: { "Spell Damage": 15 }, requiresMagic: true },
+        { name: "Mana Efficiency", description: "Reduces mana cost", statBonus: { "Mana Cost": -10 }, requiresMagic: true },
+        { name: "Spell Mastery", description: "Improves spell control", specialAbility: "Increased area of effect", requiresMagic: true }
+      ],
+      // Effects that can be applied to any item type
+      any: [
+        { name: "Magical Aura", description: "Item emits a soft magical glow", requiresMagic: true },
+        { name: "Enchanted", description: "Item feels warm to the touch", requiresMagic: true },
+        { name: "Arcane Inscription", description: "Magical runes appear on the item", requiresMagic: true }
       ]
     }
   },
@@ -55,99 +66,84 @@ export const craftingControls: Record<CraftingControlType, {
     levels: ["Chaotic", "Unstable", "Balanced", "Stable", "Perfect"],
     effects: {
       weapons: [
-        { name: "Consistent Power", description: "Reliable magical output", statBonus: { "Damage Consistency": 10 } },
-        { name: "Energy Containment", description: "Better magical energy control", specialAbility: "Reduced magic consumption" },
-        { name: "Harmonic Resonance", description: "Weapon resonates with wielder", statBonus: { "Attunement": 5 } }
+        { name: "Chaotic Edge", description: "Weapon damage is unpredictable", statBonus: { "Damage Variance": 50 } },
+        { name: "Balanced Strike", description: "Weapon has consistent damage", statBonus: { "Critical Chance": 5 } },
+        { name: "Perfect Balance", description: "Weapon feels like an extension of your body", statBonus: { "Attack Speed": 10 } }
       ],
       armor: [
-        { name: "Energy Dispersion", description: "Spreads impact across the armor", statBonus: { "Damage Reduction": 3 } },
-        { name: "Magical Dampening", description: "Reduces magical feedback", statBonus: { "Spell Damage Reduction": 5 } },
-        { name: "Stable Protection", description: "Consistent defensive properties", durabilityMod: 0.3 }
+        { name: "Shifting Protection", description: "Armor protection varies unpredictably", statBonus: { "Defense Variance": 30 } },
+        { name: "Balanced Protection", description: "Armor provides consistent protection", statBonus: { "Defense": 5 } },
+        { name: "Perfect Fit", description: "Armor moves with you perfectly", statBonus: { "Movement Speed": 5 } }
       ],
       potions: [
-        { name: "Stabilized Formula", description: "Consistent effect strength", statBonus: { "Reliability": 25 } },
-        { name: "Balanced Reaction", description: "Even distribution of effects", specialAbility: "Effects all body systems equally" },
-        { name: "Controlled Release", description: "Gradual effect application", statBonus: { "Duration": 20 } }
+        { name: "Volatile Mixture", description: "Potion effects are unpredictable", specialAbility: "Random additional effect" },
+        { name: "Balanced Brew", description: "Potion effects are consistent", statBonus: { "Effect Duration": 20 } },
+        { name: "Perfect Mixture", description: "Potion effects are maximized", statBonus: { "Effect Strength": 30 } }
       ],
       spellcraft: [
-        { name: "Contained Power", description: "Prevents magical leakage", statBonus: { "Mana Efficiency": 10 } },
-        { name: "Stable Matrix", description: "Maintains spell structure", statBonus: { "Spell Duration": 15 } },
-        { name: "Harmonic Balance", description: "Balances opposing magical forces", specialAbility: "Can combine opposing elements" }
+        { name: "Wild Magic", description: "Spell effects are unpredictable", specialAbility: "Random additional effect" },
+        { name: "Controlled Casting", description: "Spells are more precise", statBonus: { "Spell Accuracy": 15 } },
+        { name: "Perfect Harmony", description: "Spells are in perfect harmony with the caster", statBonus: { "Spell Critical Chance": 10 } }
+      ],
+      // Effects that can be applied to any item type
+      any: [
+        { name: "Chaotic Energy", description: "Item occasionally sparks with wild energy" },
+        { name: "Balanced Aura", description: "Item has a consistent magical aura" },
+        { name: "Perfect Resonance", description: "Item resonates perfectly with its owner" }
       ]
     }
   },
   curse: {
     name: "Curse Energy",
-    description: "Infuses dark energies that can be harnessed with a Cursed Energy Ring",
-    levels: ["None", "Whisper", "Murmur", "Voice", "Scream"],
+    description: "Infuses dark energies that can provide powerful but dangerous effects",
+    levels: ["None", "Minor", "Moderate", "Major", "Overwhelming"],
+    magicCost: 5, // Base magic cost that scales with level
     effects: {
       weapons: [
-        { name: "Soul Drain", description: "Drains life from enemies", statBonus: { "Life Steal": 3 } },
-        { name: "Void Touch", description: "Corrupts the target with void energy", elementalEffect: "void" },
-        { name: "Blood Pact", description: "Weapon grows stronger as you take damage", specialAbility: "Damage increases as health decreases" }
+        { name: "Life Drain", description: "Weapon drains life from enemies", specialAbility: "Lifesteal", curseEffect: "Drains user's health when not in combat" },
+        { name: "Soul Eater", description: "Weapon consumes souls of defeated enemies", statBonus: { "Damage": 15 }, curseEffect: "Reduces maximum health" },
+        { name: "Blood Pact", description: "Weapon becomes more powerful as user loses health", specialAbility: "Damage increases with missing health", curseEffect: "Cannot be healed above 50% health" }
       ],
       armor: [
-        { name: "Pain Reflection", description: "Returns a portion of damage to attackers", statBonus: { "Damage Reflection": 5 } },
-        { name: "Shadow Form", description: "Occasionally turns user incorporeal", specialAbility: "15% chance to avoid damage" },
-        { name: "Sacrificial Ward", description: "Converts health to a powerful shield", statBonus: { "Shield Strength": 20 } }
+        { name: "Shadow Form", description: "Armor allows partial phasing through attacks", statBonus: { "Dodge Chance": 10 }, curseEffect: "Takes damage from healing" },
+        { name: "Pain Reflection", description: "Armor reflects damage back to attackers", specialAbility: "Damage reflection", curseEffect: "User takes a portion of reflected damage" },
+        { name: "Void Shield", description: "Armor absorbs incoming damage", statBonus: { "Damage Reduction": 20 }, curseEffect: "Absorbs healing as well" }
       ],
       potions: [
-        { name: "Corrupted Brew", description: "Powerful but with side effects", statBonus: { "Effect Strength": 40, "Health Cost": 10 } },
-        { name: "Blood Magic", description: "Uses life force to enhance effects", specialAbility: "Effects scale with missing health" },
-        { name: "Forbidden Knowledge", description: "Grants temporary insight at a cost", statBonus: { "Wisdom": 15, "Sanity": -10 } }
+        { name: "Corrupted Brew", description: "Potion effects are amplified but corrupted", statBonus: { "Effect Strength": 50 }, curseEffect: "Causes damage over time" },
+        { name: "Tainted Elixir", description: "Potion provides powerful benefits with a cost", specialAbility: "Double effect duration", curseEffect: "Reduces maximum health temporarily" },
+        { name: "Forbidden Concoction", description: "Potion grants forbidden power", specialAbility: "Grants temporary invulnerability", curseEffect: "User takes double damage after effect ends" }
       ],
       spellcraft: [
-        { name: "Forbidden Power", description: "Taps into dangerous energies", statBonus: { "Spell Power": 30, "Control": -15 } },
-        { name: "Soul Binding", description: "Binds part of your soul to the spell", specialAbility: "Spell persists after death" },
-        { name: "Eldritch Whispers", description: "Spell carries maddening whispers", statBonus: { "Fear Effect": 25 } }
+        { name: "Forbidden Knowledge", description: "Spell draws on forbidden knowledge", statBonus: { "Spell Damage": 30 }, curseEffect: "Damages caster on use" },
+        { name: "Soul Binding", description: "Spell binds with the caster's soul", specialAbility: "No mana cost", curseEffect: "Uses health instead of mana" },
+        { name: "Dark Pact", description: "Spell is empowered by a dark pact", statBonus: { "Spell Area": 50 }, curseEffect: "Reduces maximum mana permanently" }
+      ],
+      // Effects that can be applied to any item type
+      any: [
+        { name: "Whispers", description: "Item whispers dark thoughts to its owner", curseEffect: "Occasionally causes confusion" },
+        { name: "Blood Price", description: "Item requires blood to function", curseEffect: "Drains health on use" },
+        { name: "Soul Binding", description: "Item binds to the soul of its owner", curseEffect: "Cannot be unequipped without a ritual" }
       ]
     }
   }
 };
 
-// Enhanced recipes with categories, difficulty, and required stats
+// Export recipes
 export const recipes: Recipe[] = [
+  // Basic crafting recipes (no magic cost for non-magical items)
   {
-    id: "axe",
+    id: "wooden_axe",
     inputs: ["wood", "wood", "stone"],
     output: "axe",
-    description: "Combine wood and stone to create a basic axe",
-    category: "items",
-    difficulty: 1,
-    requiredStats: {
-      metalworking: 1,
-    },
-    experienceGain: {
-      metalworking: 10,
-    },
-  },
-  {
-    id: "pickaxe",
-    inputs: ["wood", "wood", "stone", "stone"],
-    output: "pickaxe",
-    description: "Combine wood and stone to create a mining pickaxe",
-    category: "items",
+    description: "Craft a simple axe for chopping wood",
+    category: "weapons",
     difficulty: 1,
     requiredStats: {
       metalworking: 1,
     },
     experienceGain: {
       metalworking: 15,
-    },
-  },
-  {
-    id: "sword",
-    inputs: ["wood", "iron", "iron"],
-    output: "sword",
-    description: "Forge iron into a deadly blade",
-    category: "weapons",
-    difficulty: 3,
-    requiredStats: {
-      metalworking: 3,
-    },
-    temperature: 800, // Will be replaced with crafting controls
-    experienceGain: {
-      metalworking: 30,
     },
   },
   {
@@ -164,6 +160,7 @@ export const recipes: Recipe[] = [
     experienceGain: {
       magicworking: 20,
     },
+    magicCost: 10, // Requires magic points because it's a magical item
   },
   {
     id: "helmet",
@@ -206,161 +203,122 @@ export const recipes: Recipe[] = [
     experienceGain: {
       spellcraft: 20,
     },
+    magicCost: 5, // Requires magic points because it's a magical potion
   },
+  
+  // Add more standard recipes here...
+  
+  // Secret Recipes (can be discovered by accident)
   {
-    id: "healing_salve",
-    inputs: ["herb", "herb", "herb", "crystal"],
-    output: "healing_salve",
-    description: "Mix herbs with a crystal to create a healing salve",
-    category: "potions",
-    difficulty: 3,
-    requiredStats: {
-      spellcraft: 3,
-    },
-    experienceGain: {
-      spellcraft: 25,
-    },
-  },
-  {
-    id: "enchanted_sword",
-    inputs: ["sword", "crystal", "crystal"],
-    output: "enchanted_sword",
-    description: "Imbue a sword with magical crystals to enhance its power",
-    category: "weapons",
-    difficulty: 4,
-    requiredStats: {
-      metalworking: 3,
-      magicworking: 3,
-    },
-    temperature: 500, // Will be replaced with crafting controls
-    magicCost: 10,
-    experienceGain: {
-      metalworking: 20,
-      magicworking: 40,
-    },
-  },
-  {
-    id: "enchanted_leather",
-    inputs: ["leather", "crystal", "herb"],
-    output: "enchanted_leather",
-    description: "Infuse leather with magical properties using crystals and herbs",
-    category: "items",
-    difficulty: 3,
-    requiredStats: {
-      magicworking: 2,
-      spellcraft: 1,
-    },
-    temperature: 50, // Will be replaced with crafting controls
-    experienceGain: {
-      magicworking: 25,
-      spellcraft: 10,
-    },
-  },
-  {
-    id: "silver_amulet",
-    inputs: ["silver", "crystal", "crystal"],
-    output: "silver_amulet",
-    description: "Craft a silver amulet that enhances magical abilities",
-    category: "items",
-    difficulty: 4,
-    requiredStats: {
-      metalworking: 3,
-      magicworking: 3,
-    },
-    temperature: 600, // Will be replaced with crafting controls
-    experienceGain: {
-      metalworking: 20,
-      magicworking: 30,
-    },
-  },
-  {
-    id: "fireball_scroll",
-    inputs: ["crystal", "herb", "ancient_rune"],
-    output: "fireball_scroll",
-    description: "Inscribe a powerful fire spell onto a magical scroll",
-    category: "spellcraft",
-    difficulty: 4,
-    requiredStats: {
-      spellcraft: 4,
-    },
-    magicCost: 15,
-    experienceGain: {
-      spellcraft: 35,
-    },
-  },
-  {
-    id: "frost_rune",
-    inputs: ["crystal", "silver", "ancient_rune"],
-    output: "frost_rune",
-    description: "Imbue a rune with frost magic",
-    category: "spellcraft",
-    difficulty: 3,
-    requiredStats: {
-      spellcraft: 3,
-      magicworking: 2,
-    },
-    temperature: 0, // Will be replaced with crafting controls
-    magicCost: 12,
-    experienceGain: {
-      spellcraft: 30,
-      magicworking: 15,
-    },
-  },
-  {
-    id: "runic_staff",
-    inputs: ["staff", "ancient_rune", "crystal", "crystal"],
-    output: "runic_staff",
-    description: "Enhance a staff with an ancient rune and crystals",
-    category: "weapons",
-    difficulty: 6,
-    requiredStats: {
-      magicworking: 5,
-      spellcraft: 4,
-    },
-    temperature: 300, // Will be replaced with crafting controls
-    magicCost: 20,
-    experienceGain: {
-      magicworking: 50,
-      spellcraft: 40,
-    },
-    isSecret: true,
-  },
-  {
-    id: "dragon_armor",
-    inputs: ["dragon_scale", "dragon_scale", "dragon_scale", "enchanted_leather", "steel"],
-    output: "dragon_armor",
-    description: "Forge legendary armor from dragon scales and enchanted materials",
-    category: "armor",
-    difficulty: 8,
-    requiredStats: {
-      metalworking: 6,
-      magicworking: 5,
-    },
-    temperature: 1200, // Will be replaced with crafting controls
-    magicCost: 30,
-    experienceGain: {
-      metalworking: 70,
-      magicworking: 60,
-    },
-    isSecret: true,
-  },
-  {
-    id: "lightning_gem",
-    inputs: ["crystal", "crystal", "ancient_rune", "silver"],
-    output: "lightning_gem",
-    description: "Create a gem that can channel lightning magic",
+    id: "phoenix_feather",
+    inputs: ["fire_essence", "herb", "crystal"],
+    output: "phoenix_feather",
+    description: "A magical feather that can resurrect its owner once",
     category: "spellcraft",
     difficulty: 5,
     requiredStats: {
       spellcraft: 4,
       magicworking: 3,
     },
-    temperature: 400, // Will be replaced with crafting controls
-    magicCost: 20,
     experienceGain: {
-      spellcraft: 45,
-      magicworking: 25,
+      spellcraft: 50,
+      magicworking: 30,
     },
+    magicCost: 25,
     isSecret: true,
+    patternType: "triangle", // Requires a specific pattern to discover
+  },
+  {
+    id: "void_crystal",
+    inputs: ["crystal", "crystal", "cursed_energy"],
+    output: "void_crystal",
+    description: "A crystal infused with void energy that can absorb magical attacks",
+    category: "spellcraft",
+    difficulty: 6,
+    requiredStats: {
+      spellcraft: 5,
+      magicworking: 4,
+    },
+    experienceGain: {
+      spellcraft: 60,
+      magicworking: 40,
+    },
+    magicCost: 30,
+    isSecret: true,
+    patternType: "cross", // Requires a specific pattern to discover
+  },
+  {
+    id: "shadow_blade",
+    inputs: ["iron", "cursed_energy", "void_essence"],
+    output: "shadow_blade",
+    description: "A blade that phases through armor but drains the wielder's life force",
+    category: "weapons",
+    difficulty: 7,
+    requiredStats: {
+      metalworking: 5,
+      magicworking: 4,
+    },
+    experienceGain: {
+      metalworking: 50,
+      magicworking: 60,
+    },
+    magicCost: 35,
+    isSecret: true,
+    patternType: "diagonal", // Requires a specific pattern to discover
+  },
+  {
+    id: "ethereal_armor",
+    inputs: ["iron", "crystal", "void_essence", "light_essence"],
+    output: "ethereal_armor",
+    description: "Armor that exists partially in another dimension, providing incredible protection",
+    category: "armor",
+    difficulty: 8,
+    requiredStats: {
+      metalworking: 6,
+      magicworking: 6,
+    },
+    experienceGain: {
+      metalworking: 70,
+      magicworking: 70,
+    },
+    magicCost: 40,
+    isSecret: true,
+    patternType: "square", // Requires a specific pattern to discover
+  },
+  {
+    id: "elixir_of_immortality",
+    inputs: ["phoenix_feather", "herb", "crystal", "light_essence"],
+    output: "elixir_of_immortality",
+    description: "A legendary potion that grants temporary immortality",
+    category: "potions",
+    difficulty: 9,
+    requiredStats: {
+      spellcraft: 8,
+    },
+    experienceGain: {
+      spellcraft: 100,
+    },
+    magicCost: 50,
+    isSecret: true,
+    patternType: "circle", // Requires a specific pattern to discover
+  },
+  {
+    id: "cursed_energy_ring",
+    inputs: ["iron", "cursed_energy", "void_essence"],
+    output: "cursed_energy_ring",
+    description: "A ring that allows the wearer to harness cursed energy for crafting",
+    category: "spellcraft",
+    difficulty: 6,
+    requiredStats: {
+      magicworking: 5,
+      spellcraft: 4,
+    },
+    experienceGain: {
+      magicworking: 50,
+      spellcraft: 40,
+    },
+    magicCost: 30,
+    isSecret: true,
+    patternType: "linear", // Requires a specific pattern to discover
   },
 ]; 
