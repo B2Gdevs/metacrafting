@@ -1,23 +1,17 @@
 "use client"
 
-import { useState } from "react";
+import { CharacterStats } from "@/components/character-sheet";
 import { Item } from "@/components/item-slot";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
-import { 
-  getRarityClass, 
-  getRarityButtonClass, 
-  formatStatName, 
-  formatCurrency, 
-  formatDualCurrency,
+import {
   canAffordItem,
+  formatStatName,
   getItemTypeIcon,
+  getRarityClass,
   getRarityTextClass
 } from "@/lib/marketplace-utils";
-import { ShoppingCart, Package, Coins, Diamond, Info } from "lucide-react";
-import { CharacterStats } from "@/components/character-sheet";
+import { Coins, Diamond, Info, Package, ShoppingCart } from "lucide-react";
 
 interface ItemCardProps {
   itemId: string;
