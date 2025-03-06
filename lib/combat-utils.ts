@@ -511,7 +511,8 @@ export function getAvailableSpecialSkills(
       "uncommon": 2,
       "rare": 3,
       "epic": 4,
-      "legendary": 5
+      "legendary": 5,
+      "mythic": 6
     };
     
     const requiredRarityValue = rarityValue[skill.requiredRarity];

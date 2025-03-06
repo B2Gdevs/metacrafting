@@ -1,0 +1,156 @@
+"use client"
+
+import { useState } from "react"
+import { Search, Filter } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Button } from "@/components/ui/button"
+import ItemSlot, { Item, ItemType, ItemRarity } from "@/components/item-slot"
+
+interface CraftingInventoryProps {
+  inventory: Array<{ id: string; quantity: number }>
+  gameItems: Record<string, Item>
+  onDragStart: (item: string, source: "inventory" | "grid", index: number) => void
+  onDropArea: () => void
+}
+
+export default function CraftingInventory({
+  inventory,
+  gameItems,
+  onDragStart,
+  onDropArea
+}: CraftingInventoryProps) {
+  const [searchTerm, setSearchTerm] = useState("")
+  const [typeFilter, setTypeFilter] = useState<ItemType | "all">("all")
+  const [rarityFilter, setRarityFilter] = useState<ItemRarity | "all">("all")
+  
+  // Filter inventory items based on search and filters
+  const filteredInventory = inventory.filter(item => {
+    const gameItem = gameItems[item.id]
+    if (!gameItem) return false
+    
+    // Search filter
+    if (searchTerm && !gameItem.name.toLowerCase().includes(searchTerm.toLowerCase())) {
+      return false
+    }
+    
+    // Type filter
+    if (typeFilter !== "all" && gameItem.type !== typeFilter) {
+      return false
+    }
+    
+    // Rarity filter
+    if (rarityFilter !== "all" && gameItem.rarity !== rarityFilter) {
+      return false
+    }
+    
+    return true
+  })
+  
+  return (
+    <div className="bg-gray-900 rounded-lg border border-gray-800 p-4">
+      <h3 className="text-lg font-medium text-amber-400 mb-4">Inventory</h3>
+      
+      <div className="space-y-4">
+        {/* Search and Filters */}
+        <div className="space-y-2">
+          <div className="relative">
+            <Search className="absolute left-2.5 top-2.5 h-4 w-4 text-gray-500" />
+            <Input
+              type="text"
+              placeholder="Search items..."
+              className="pl-8 bg-gray-800 border-gray-700"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+            />
+          </div>
+          
+          <div className="flex flex-wrap gap-2">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-amber-400" />
+              <span className="text-sm text-amber-400 font-medium">FILTERS:</span>
+            </div>
+            
+            <Select value={typeFilter} onValueChange={(value) => setTypeFilter(value as ItemType | "all")}>
+              <SelectTrigger className="h-8 w-32 bg-gray-800/80 border-amber-900/50 hover:border-amber-500/70 transition-colors">
+                <SelectValue placeholder="Item Type" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-900 border-amber-900">
+                <SelectItem value="all">All Types</SelectItem>
+                <SelectItem value="weapon">Weapons</SelectItem>
+                <SelectItem value="armor">Armor</SelectItem>
+                <SelectItem value="accessory">Accessories</SelectItem>
+                <SelectItem value="potion">Potions</SelectItem>
+                <SelectItem value="ingredient">Ingredients</SelectItem>
+                <SelectItem value="tool">Tools</SelectItem>
+                <SelectItem value="magical">Magical</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Select value={rarityFilter} onValueChange={(value) => setRarityFilter(value as ItemRarity | "all")}>
+              <SelectTrigger className="h-8 w-32 bg-gray-800/80 border-amber-900/50 hover:border-amber-500/70 transition-colors">
+                <SelectValue placeholder="Rarity" />
+              </SelectTrigger>
+              <SelectContent className="bg-gray-900 border-amber-900">
+                <SelectItem value="all">All Rarities</SelectItem>
+                <SelectItem value="common">Common</SelectItem>
+                <SelectItem value="uncommon">Uncommon</SelectItem>
+                <SelectItem value="rare">Rare</SelectItem>
+                <SelectItem value="epic">Epic</SelectItem>
+                <SelectItem value="legendary">Legendary</SelectItem>
+                <SelectItem value="mythic">Mythic</SelectItem>
+              </SelectContent>
+            </Select>
+            
+            <Button 
+              size="sm" 
+              variant="outline"
+              className="h-8 text-xs border-amber-900/50 text-amber-400 hover:border-amber-500/70"
+              onClick={() => {
+                setSearchTerm("")
+                setTypeFilter("all")
+                setRarityFilter("all")
+              }}
+            >
+              Reset Filters
+            </Button>
+          </div>
+        </div>
+        
+        {/* Inventory Grid */}
+        <div 
+          className="grid grid-cols-6 gap-2 max-h-[400px] overflow-y-auto p-2 bg-gray-800/50 rounded-lg border border-gray-700"
+          onDragOver={(e) => {
+            e.preventDefault()
+            e.stopPropagation()
+          }}
+          onDrop={(e) => {
+            e.preventDefault()
+            onDropArea()
+          }}
+        >
+          {filteredInventory.length > 0 ? (
+            filteredInventory.map((item, index) => (
+              <div key={`${item.id}-${index}`} className="flex flex-col items-center">
+                <ItemSlot 
+                  item={gameItems[item.id]} 
+                  onDragStart={() => onDragStart(item.id, "inventory", index)}
+                  quantity={item.quantity}
+                  size="small"
+                />
+              </div>
+            ))
+          ) : (
+            <div className="col-span-6 text-center py-8 text-gray-500">
+              No items match the selected filters
+            </div>
+          )}
+        </div>
+        
+        <div className="text-right text-xs text-gray-400">
+          {filteredInventory.length} / {inventory.length} items
+        </div>
+      </div>
+    </div>
+  )
+} 

@@ -1,18 +1,24 @@
 "use client";
 
-import React, { RefObject } from "react";
+import React, { RefObject, useMemo } from "react";
 import { useDrop } from "react-dnd";
 import type { DropTargetMonitor } from 'react-dnd';
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { Button } from "@/components/ui/button";
-import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import { Badge } from "@/components/ui/badge";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
 import ItemSlot from "@/components/item-slot";
 import { Item } from "@/components/item-slot";
 import { EquipmentSlot } from "@/lib/items";
 import { calculateCombatStats } from "@/lib/combat-utils";
 import { CharacterStats } from "@/components/character-sheet";
 import { gameItems } from "@/lib/items";
+import { 
+  EQUIPMENT_SLOTS, 
+  EQUIPMENT_SLOT_LABELS, 
+  COMBAT_STAT_LABELS,
+  createEquipmentDropHandler,
+  formatElementName
+} from "@/lib/equipment-utils";
 
 interface EquipmentLayoutProps {
   character: CharacterStats;
@@ -28,137 +34,57 @@ export default function EquipmentLayout({
   selectedItem
 }: EquipmentLayoutProps) {
   // Calculate combat stats based on equipped items
-  const equippedItems: Record<string, Item> = {};
-  
-  // Add equipped items from character
-  Object.entries(character.equipment).forEach(([slot, item]) => {
-    if (slot === "rings") {
-      // Handle arrays like rings
-      if (Array.isArray(item)) {
-        item.forEach((ringItem, index) => {
-          if (ringItem && typeof ringItem === 'string' && gameItems[ringItem]) {
-            equippedItems[`${slot}_${index}`] = gameItems[ringItem];
-          }
-        });
+  const equippedItems = useMemo(() => {
+    const items: Record<string, Item> = {};
+    
+    // Add equipped items from character
+    Object.entries(character.equipment).forEach(([slot, item]) => {
+      if (slot === EQUIPMENT_SLOTS.RINGS) {
+        // Handle arrays like rings
+        if (Array.isArray(item)) {
+          item.forEach((ringItem, index) => {
+            if (ringItem && typeof ringItem === 'string' && gameItems[ringItem]) {
+              items[`${slot}_${index}`] = gameItems[ringItem];
+            }
+          });
+        }
+      } else if (item && typeof item === 'string' && gameItems[item]) {
+        // Handle single items
+        items[slot] = gameItems[item];
       }
-    } else if (item && typeof item === 'string' && gameItems[item]) {
-      // Handle single items
-      equippedItems[slot] = gameItems[item];
-    }
-  });
+    });
+    
+    return items;
+  }, [character.equipment]);
   
   const combatStats = calculateCombatStats(character, equippedItems);
 
-  // Set up drop target for equipment slots
-  const [{ isOver: isOverHead }, dropHead] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "head");
-      return { type: "equipment", slot: "head" };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
+  // Create drop handlers for each equipment slot
+  const createDropRef = (slot: EquipmentSlot, ringIndex?: number) => {
+    const dropHandler = createEquipmentDropHandler(selectedItem, onEquip, slot, ringIndex);
+    
+    const [{ isOver }, dropRef] = useDrop({
+      accept: "INVENTORY_ITEM",
+      drop: dropHandler,
+      collect: (monitor: DropTargetMonitor) => ({
+        isOver: !!monitor.isOver(),
+      }),
+    });
+    
+    return { isOver, dropRef };
+  };
 
-  const [{ isOver: isOverChest }, dropChest] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "chest");
-      return { type: "equipment", slot: "chest" };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
-
-  const [{ isOver: isOverLegs }, dropLegs] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "legs");
-      return { type: "equipment", slot: "legs" };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
-
-  const [{ isOver: isOverFeet }, dropFeet] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "feet");
-      return { type: "equipment", slot: "feet" };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
-
-  const [{ isOver: isOverHands }, dropHands] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "hands");
-      return { type: "equipment", slot: "hands" };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
-
-  const [{ isOver: isOverWeapon }, dropWeapon] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "weapon");
-      return { type: "equipment", slot: "weapon" };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
-
-  const [{ isOver: isOverOffhand }, dropOffhand] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "offhand");
-      return { type: "equipment", slot: "offhand" };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
-
-  const [{ isOver: isOverRing1 }, dropRing1] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "rings" as EquipmentSlot);
-      return { type: "equipment", slot: "rings", index: 0 };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
-
-  const [{ isOver: isOverRing2 }, dropRing2] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "rings" as EquipmentSlot);
-      return { type: "equipment", slot: "rings", index: 1 };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
-
-  const [{ isOver: isOverNeck }, dropNeck] = useDrop({
-    accept: "INVENTORY_ITEM",
-    drop: () => {
-      if (selectedItem) onEquip(selectedItem, "neck");
-      return { type: "equipment", slot: "neck" };
-    },
-    collect: (monitor: DropTargetMonitor) => ({
-      isOver: !!monitor.isOver(),
-    }),
-  });
+  // Create drop refs for all equipment slots
+  const headDrop = createDropRef(EQUIPMENT_SLOTS.HEAD);
+  const chestDrop = createDropRef(EQUIPMENT_SLOTS.CHEST);
+  const legsDrop = createDropRef(EQUIPMENT_SLOTS.LEGS);
+  const feetDrop = createDropRef(EQUIPMENT_SLOTS.FEET);
+  const handsDrop = createDropRef(EQUIPMENT_SLOTS.HANDS);
+  const weaponDrop = createDropRef(EQUIPMENT_SLOTS.WEAPON);
+  const offhandDrop = createDropRef(EQUIPMENT_SLOTS.OFFHAND);
+  const neckDrop = createDropRef(EQUIPMENT_SLOTS.NECK);
+  const ring1Drop = createDropRef(EQUIPMENT_SLOTS.RINGS, 0);
+  const ring2Drop = createDropRef(EQUIPMENT_SLOTS.RINGS, 1);
 
   return (
     <div className="space-y-6">
@@ -171,44 +97,44 @@ export default function EquipmentLayout({
           <div className="grid grid-cols-3 gap-4">
             {/* Top row */}
             <div className="flex justify-center">
-              <div ref={dropHead as unknown as RefObject<HTMLDivElement>}>
+              <div ref={headDrop.dropRef as unknown as RefObject<HTMLDivElement>}>
                 <ItemSlot
                   item={character.equipment.head || null}
-                  label="Head"
-                  isOver={isOverHead}
-                  onRemove={() => onUnequip("head")}
+                  label={EQUIPMENT_SLOT_LABELS[EQUIPMENT_SLOTS.HEAD]}
+                  isOver={headDrop.isOver}
+                  onRemove={() => onUnequip(EQUIPMENT_SLOTS.HEAD)}
                 />
               </div>
             </div>
             <div className="flex justify-center">
-              <div ref={dropNeck as unknown as RefObject<HTMLDivElement>}>
+              <div ref={neckDrop.dropRef as unknown as RefObject<HTMLDivElement>}>
                 <ItemSlot
                   item={character.equipment.neck || null}
-                  label="Neck"
-                  isOver={isOverNeck}
-                  onRemove={() => onUnequip("neck")}
+                  label={EQUIPMENT_SLOT_LABELS[EQUIPMENT_SLOTS.NECK]}
+                  isOver={neckDrop.isOver}
+                  onRemove={() => onUnequip(EQUIPMENT_SLOTS.NECK)}
                 />
               </div>
             </div>
             <div className="flex justify-center">
               <div className="flex flex-col items-center">
-                <div className="mb-1 text-xs text-center">Rings</div>
+                <div className="mb-1 text-xs text-center">{EQUIPMENT_SLOT_LABELS[EQUIPMENT_SLOTS.RINGS]}</div>
                 <div className="flex gap-2">
-                  <div ref={dropRing1 as unknown as RefObject<HTMLDivElement>}>
+                  <div ref={ring1Drop.dropRef as unknown as RefObject<HTMLDivElement>}>
                     <ItemSlot
                       item={character.equipment.rings?.[0] || null}
                       label="1"
-                      isOver={isOverRing1}
-                      onRemove={() => onUnequip("rings", 0)}
+                      isOver={ring1Drop.isOver}
+                      onRemove={() => onUnequip(EQUIPMENT_SLOTS.RINGS, 0)}
                       size="small"
                     />
                   </div>
-                  <div ref={dropRing2 as unknown as RefObject<HTMLDivElement>}>
+                  <div ref={ring2Drop.dropRef as unknown as RefObject<HTMLDivElement>}>
                     <ItemSlot
                       item={character.equipment.rings?.[1] || null}
                       label="2"
-                      isOver={isOverRing2}
-                      onRemove={() => onUnequip("rings", 1)}
+                      isOver={ring2Drop.isOver}
+                      onRemove={() => onUnequip(EQUIPMENT_SLOTS.RINGS, 1)}
                       size="small"
                     />
                   </div>
@@ -218,64 +144,64 @@ export default function EquipmentLayout({
 
             {/* Middle row */}
             <div className="flex justify-center">
-              <div ref={dropHands as unknown as RefObject<HTMLDivElement>}>
+              <div ref={handsDrop.dropRef as unknown as RefObject<HTMLDivElement>}>
                 <ItemSlot
                   item={character.equipment.hands || null}
-                  label="Hands"
-                  isOver={isOverHands}
-                  onRemove={() => onUnequip("hands")}
+                  label={EQUIPMENT_SLOT_LABELS[EQUIPMENT_SLOTS.HANDS]}
+                  isOver={handsDrop.isOver}
+                  onRemove={() => onUnequip(EQUIPMENT_SLOTS.HANDS)}
                 />
               </div>
             </div>
             <div className="flex justify-center">
-              <div ref={dropChest as unknown as RefObject<HTMLDivElement>}>
+              <div ref={chestDrop.dropRef as unknown as RefObject<HTMLDivElement>}>
                 <ItemSlot
                   item={character.equipment.chest || null}
-                  label="Chest"
-                  isOver={isOverChest}
-                  onRemove={() => onUnequip("chest")}
+                  label={EQUIPMENT_SLOT_LABELS[EQUIPMENT_SLOTS.CHEST]}
+                  isOver={chestDrop.isOver}
+                  onRemove={() => onUnequip(EQUIPMENT_SLOTS.CHEST)}
                 />
               </div>
             </div>
             <div className="flex justify-center">
-              <div ref={dropOffhand as unknown as RefObject<HTMLDivElement>}>
+              <div ref={offhandDrop.dropRef as unknown as RefObject<HTMLDivElement>}>
                 <ItemSlot
                   item={character.equipment.offhand || null}
-                  label="Offhand"
-                  isOver={isOverOffhand}
-                  onRemove={() => onUnequip("offhand")}
+                  label={EQUIPMENT_SLOT_LABELS[EQUIPMENT_SLOTS.OFFHAND]}
+                  isOver={offhandDrop.isOver}
+                  onRemove={() => onUnequip(EQUIPMENT_SLOTS.OFFHAND)}
                 />
               </div>
             </div>
 
             {/* Bottom row */}
             <div className="flex justify-center">
-              <div ref={dropWeapon as unknown as RefObject<HTMLDivElement>}>
+              <div ref={weaponDrop.dropRef as unknown as RefObject<HTMLDivElement>}>
                 <ItemSlot
                   item={character.equipment.weapon || null}
-                  label="Weapon"
-                  isOver={isOverWeapon}
-                  onRemove={() => onUnequip("weapon")}
+                  label={EQUIPMENT_SLOT_LABELS[EQUIPMENT_SLOTS.WEAPON]}
+                  isOver={weaponDrop.isOver}
+                  onRemove={() => onUnequip(EQUIPMENT_SLOTS.WEAPON)}
                 />
               </div>
             </div>
             <div className="flex justify-center">
-              <div ref={dropLegs as unknown as RefObject<HTMLDivElement>}>
+              <div ref={legsDrop.dropRef as unknown as RefObject<HTMLDivElement>}>
                 <ItemSlot
                   item={character.equipment.legs || null}
-                  label="Legs"
-                  isOver={isOverLegs}
-                  onRemove={() => onUnequip("legs")}
+                  label={EQUIPMENT_SLOT_LABELS[EQUIPMENT_SLOTS.LEGS]}
+                  isOver={legsDrop.isOver}
+                  onRemove={() => onUnequip(EQUIPMENT_SLOTS.LEGS)}
                 />
               </div>
             </div>
             <div className="flex justify-center">
-              <div ref={dropFeet as unknown as RefObject<HTMLDivElement>}>
+              <div ref={feetDrop.dropRef as unknown as RefObject<HTMLDivElement>}>
                 <ItemSlot
                   item={character.equipment.feet || null}
-                  label="Feet"
-                  isOver={isOverFeet}
-                  onRemove={() => onUnequip("feet")}
+                  label={EQUIPMENT_SLOT_LABELS[EQUIPMENT_SLOTS.FEET]}
+                  isOver={feetDrop.isOver}
+                  onRemove={() => onUnequip(EQUIPMENT_SLOTS.FEET)}
                 />
               </div>
             </div>
@@ -292,33 +218,33 @@ export default function EquipmentLayout({
           <div className="grid grid-cols-2 gap-4">
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>Attack:</span>
+                <span>{COMBAT_STAT_LABELS.ATTACK}:</span>
                 <span className="font-medium">{combatStats.attack}</span>
               </div>
               <div className="flex justify-between">
-                <span>Defense:</span>
+                <span>{COMBAT_STAT_LABELS.DEFENSE}:</span>
                 <span className="font-medium">{combatStats.defense}</span>
               </div>
               <div className="flex justify-between">
-                <span>Magic Attack:</span>
+                <span>{COMBAT_STAT_LABELS.MAGIC_ATTACK}:</span>
                 <span className="font-medium">{combatStats.magicAttack}</span>
               </div>
               <div className="flex justify-between">
-                <span>Magic Defense:</span>
+                <span>{COMBAT_STAT_LABELS.MAGIC_DEFENSE}:</span>
                 <span className="font-medium">{combatStats.magicDefense}</span>
               </div>
             </div>
             <div className="space-y-2">
               <div className="flex justify-between">
-                <span>Speed:</span>
+                <span>{COMBAT_STAT_LABELS.SPEED}:</span>
                 <span className="font-medium">{combatStats.speed}</span>
               </div>
               <div className="flex justify-between">
-                <span>Crit Chance:</span>
+                <span>{COMBAT_STAT_LABELS.CRIT_CHANCE}:</span>
                 <span className="font-medium">{combatStats.critChance}%</span>
               </div>
               <div className="flex justify-between">
-                <span>Crit Damage:</span>
+                <span>{COMBAT_STAT_LABELS.CRIT_DAMAGE}:</span>
                 <span className="font-medium">{combatStats.critDamage}%</span>
               </div>
             </div>
@@ -331,7 +257,7 @@ export default function EquipmentLayout({
               {Object.entries(combatStats.elementalResistances).map(([element, value]) => (
                 <div key={element} className="flex flex-col items-center">
                   <Badge variant={value > 0 ? "default" : "outline"} className="mb-1">
-                    {element.charAt(0).toUpperCase() + element.slice(1)}
+                    {formatElementName(element)}
                   </Badge>
                   <span className={value > 0 ? "text-green-500" : ""}>{value}%</span>
                 </div>
@@ -358,7 +284,7 @@ export default function EquipmentLayout({
                           <p className="text-xs">{skill.description}</p>
                           <div className="mt-1 text-xs">
                             <div>Type: {skill.type}</div>
-                            {skill.element && <div>Element: {skill.element}</div>}
+                            {skill.element && <div>Element: {formatElementName(skill.element)}</div>}
                             <div>Power: {skill.basePower}</div>
                             <div>Mana Cost: {skill.manaCost}</div>
                             <div>Cooldown: {skill.cooldown} turns</div>

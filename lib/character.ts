@@ -21,8 +21,13 @@ export const initialCharacter: CharacterStats = {
   craftingExperience: {
     metalworking: 150,
     magicworking: 80,
-    spellcraft: 120,
+    spellcraft: 50,
   },
+  gold: 500,
+  gems: 10,
+  equipment: {
+    rings: []
+  }
 };
 
 // Initial inventory state

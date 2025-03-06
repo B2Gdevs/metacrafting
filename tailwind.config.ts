@@ -83,11 +83,38 @@ const config: Config = {
   				to: {
   					height: '0'
   				}
-  			}
+  			},
+            'float-particle': {
+                '0%, 100%': {
+                    transform: 'translateY(0) translateX(0)',
+                    opacity: '0'
+                },
+                '25%': {
+                    opacity: '1'
+                },
+                '50%': {
+                    transform: 'translateY(-10px) translateX(5px)',
+                    opacity: '0.7'
+                },
+                '75%': {
+                    transform: 'translateY(-15px) translateX(-5px)',
+                    opacity: '0.3'
+                }
+            },
+            'glow-pulse': {
+                '0%, 100%': {
+                    boxShadow: '0 0 5px 2px currentColor'
+                },
+                '50%': {
+                    boxShadow: '0 0 15px 5px currentColor'
+                }
+            }
   		},
   		animation: {
   			'accordion-down': 'accordion-down 0.2s ease-out',
-  			'accordion-up': 'accordion-up 0.2s ease-out'
+  			'accordion-up': 'accordion-up 0.2s ease-out',
+            'float-particle': 'float-particle 3s ease-in-out infinite',
+            'glow-pulse': 'glow-pulse 2s ease-in-out infinite'
   		}
   	}
   },

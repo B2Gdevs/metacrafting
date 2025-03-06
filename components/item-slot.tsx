@@ -8,7 +8,7 @@ import { Badge } from "@/components/ui/badge"
 import { EquipmentSlot } from "@/lib/items"
 
 export type ItemType = "ingredient" | "crafted" | "weapon" | "armor" | "potion" | "tool" | "magical" | "accessory"
-export type ItemRarity = "common" | "uncommon" | "rare" | "epic" | "legendary"
+export type ItemRarity = "common" | "uncommon" | "rare" | "epic" | "legendary" | "mythic"
 
 export type Item = {
   id: string
@@ -132,6 +132,8 @@ export default function ItemSlot({
         return "text-purple-400"
       case "legendary":
         return "text-amber-400"
+      case "mythic":
+        return "text-red-400"
       default:
         return "text-gray-300"
     }
