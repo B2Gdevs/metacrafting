@@ -10,10 +10,11 @@ import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useMarketplace } from "@/hooks/use-marketplace";
+import { useGameStore } from "@/lib/store";
 import { gameItems } from "@/lib/items";
 import {
   CurrencyType,
+  CurrencyValues,
   MarketplaceItem
 } from "@/lib/marketplace-types";
 import {
@@ -28,20 +29,19 @@ import { ChevronDown, ChevronUp, Coins, Diamond, Filter, Package, Search, Store,
 import { useState } from "react";
 
 interface MarketplaceProps {
-  character: CharacterStats;
-  inventory: Array<{ id: string; quantity: number }>;
   onUpdateCharacter: (character: CharacterStats) => void;
   onUpdateInventory: (inventory: Array<{ id: string; quantity: number }>) => void;
 }
 
 export default function Marketplace({ 
-  character, 
-  inventory, 
   onUpdateCharacter, 
   onUpdateInventory
 }: MarketplaceProps) {
-  const { 
+  // Get state and actions from the game store
+  const {
     // State
+    character,
+    inventory,
     npcItems,
     playerMarketItems,
     selectedTab,
@@ -51,13 +51,13 @@ export default function Marketplace({
     filterState,
     searchTerm,
     
-    // Handlers
+    // Actions
     setSelectedTab,
     setSelectedAction,
-    handleBuyItem,
-    handleSellItem,
-    handleOpenListingDialog,
-    handleListItem,
+    buyItem,
+    sellItem,
+    openListingDialog,
+    listItem,
     updateDraftListing,
     clearDraftListing,
     updateFilterState,
@@ -65,16 +65,15 @@ export default function Marketplace({
     setSearchTerm,
     
     // Computed values
-    filteredNpcItems,
-    filteredPlayerItems,
-    inventoryWithPrices
-  } = useMarketplace({
-    character,
-    inventory,
-    gameItems,
-    onUpdateCharacter,
-    onUpdateInventory
-  });
+    getFilteredNpcItems,
+    getFilteredPlayerItems,
+    getInventoryWithPrices
+  } = useGameStore();
+
+  // Get filtered items
+  const filteredNpcItems = getFilteredNpcItems();
+  const filteredPlayerItems = getFilteredPlayerItems();
+  const inventoryWithPrices = getInventoryWithPrices();
 
   // State for the equipment comparison overlay
   const [overlayData, setOverlayData] = useState<{
@@ -120,6 +119,47 @@ export default function Marketplace({
     
     const inventoryItem = inventory.find(item => item.id === itemId);
     return inventoryItem ? inventoryItem.quantity : 0;
+  };
+
+  // Sync state changes with parent component
+  const handleBuyItem = (itemId: string, currencies: Partial<CurrencyValues>, requireAllCurrencies: boolean, seller?: string) => {
+    buyItem(itemId, currencies, requireAllCurrencies, seller);
+    
+    // Get the updated character and inventory after the purchase
+    const updatedCharacter = { ...character };
+    
+    // Update currencies based on the purchase
+    if (requireAllCurrencies) {
+      // Deduct all currencies
+      if (currencies[CurrencyType.GOLD]) {
+        updatedCharacter.gold -= currencies[CurrencyType.GOLD];
+      }
+      if (currencies[CurrencyType.GEMS]) {
+        updatedCharacter.gems -= currencies[CurrencyType.GEMS];
+      }
+    } else {
+      // Deduct only one currency (prioritize gold)
+      if (currencies[CurrencyType.GOLD]) {
+        updatedCharacter.gold -= currencies[CurrencyType.GOLD];
+      } else if (currencies[CurrencyType.GEMS]) {
+        updatedCharacter.gems -= currencies[CurrencyType.GEMS];
+      }
+    }
+    
+    // Update parent components
+    onUpdateCharacter(updatedCharacter);
+    onUpdateInventory(inventory);
+  };
+
+  const handleSellItem = (itemId: string) => {
+    sellItem(itemId);
+    onUpdateCharacter(character);
+    onUpdateInventory(inventory);
+  };
+
+  const handleListItem = () => {
+    listItem();
+    onUpdateInventory(inventory);
   };
   
   return (
@@ -379,7 +419,7 @@ export default function Marketplace({
                           <Button 
                             variant="outline" 
                             size="sm"
-                            onClick={() => handleOpenListingDialog(item.id)}
+                            onClick={() => openListingDialog(item.id)}
                           >
                             <Package className="h-4 w-4 mr-1" />
                             List

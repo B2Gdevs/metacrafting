@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect } from "react";
 import { DndProvider } from "react-dnd";
 import { HTML5Backend } from "react-dnd-html5-backend";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
@@ -9,66 +9,31 @@ import CharacterSheet, { CharacterStats } from "@/components/character-sheet";
 import CombatSystem from "@/components/combat-system";
 import Marketplace from "@/components/marketplace";
 import { gameItems } from "@/lib/items";
+import { useGameStore } from "@/lib/store";
 import { Hammer, Sword, User, ShoppingCart } from "lucide-react";
 
 export default function Home() {
-  // Define shared state
-  const [character, setCharacter] = useState<CharacterStats>({
-    name: "Craftmaster",
-    level: 5,
-    experience: 240,
-    experienceToNextLevel: 500,
-    strength: 8,
-    speed: 6,
-    health: 100,
-    maxHealth: 100,
-    magicPoints: 50,
-    maxMagicPoints: 50,
-    image: "/placeholder-user.jpg",
-    gold: 500,
-    gems: 10,
-    craftingStats: {
-      metalworking: 3,
-      magicworking: 2,
-      spellcraft: 2,
-    },
-    craftingExperience: {
-      metalworking: 150,
-      magicworking: 80,
-      spellcraft: 120,
-    },
-    equipment: {
-      rings: [],
-    }
-  });
-
-  const [inventory, setInventory] = useState([
-    { id: "wood", quantity: 5 },
-    { id: "stone", quantity: 3 },
-    { id: "iron", quantity: 2 },
-    { id: "leather", quantity: 4 },
-    { id: "herb", quantity: 3 },
-    { id: "crystal", quantity: 2 },
-    { id: "magic_potion", quantity: 2 },
-  ]);
+  // Get state and actions from the game store
+  const {
+    character,
+    inventory,
+    updateCharacter,
+    updateInventory,
+    addToInventory,
+    removeFromInventory
+  } = useGameStore();
 
   // Handle consuming a magic potion
   const handleConsumeMagicPotion = () => {
     const potionIndex = inventory.findIndex(item => item.id === "magic_potion");
     if (potionIndex >= 0 && inventory[potionIndex].quantity > 0) {
       // Update inventory
-      const newInventory = [...inventory];
-      newInventory[potionIndex].quantity -= 1;
-      if (newInventory[potionIndex].quantity <= 0) {
-        newInventory.splice(potionIndex, 1);
-      }
-      setInventory(newInventory);
+      removeFromInventory("magic_potion", 1);
       
       // Update character mana
-      setCharacter(prev => ({
-        ...prev,
-        magicPoints: Math.min(prev.maxMagicPoints, prev.magicPoints + 25)
-      }));
+      updateCharacter({
+        magicPoints: Math.min(character.maxMagicPoints, character.magicPoints + 25)
+      });
       
       return true;
     }
@@ -76,13 +41,13 @@ export default function Home() {
   };
 
   // Handle character updates
-  const handleUpdateCharacter = (updatedCharacter: typeof character) => {
-    setCharacter(updatedCharacter);
+  const handleUpdateCharacter = (updatedCharacter: CharacterStats) => {
+    updateCharacter(updatedCharacter);
   };
 
   // Handle inventory updates
-  const handleUpdateInventory = (updatedInventory: typeof inventory) => {
-    setInventory(updatedInventory);
+  const handleUpdateInventory = (updatedInventory: Array<{ id: string; quantity: number }>) => {
+    updateInventory(updatedInventory);
   };
 
   // Handle equipping an item
@@ -92,30 +57,24 @@ export default function Home() {
     // Handle rings separately since they can have multiple slots
     if (slot === "rings") {
       // Find the first empty ring slot or add to the end
-      const emptyIndex = newCharacter.equipment.rings.findIndex(ring => !ring);
+      const ringsArray = newCharacter.equipment.rings || [];
+      const emptyIndex = ringsArray.findIndex(ring => !ring);
       if (emptyIndex !== -1) {
-        newCharacter.equipment.rings[emptyIndex] = itemId;
+        ringsArray[emptyIndex] = itemId;
       } else {
-        newCharacter.equipment.rings.push(itemId);
+        ringsArray.push(itemId);
       }
+      newCharacter.equipment.rings = ringsArray;
     } else {
       // For other slots, just assign the item
       (newCharacter.equipment as any)[slot] = itemId;
     }
     
     // Remove the item from inventory
-    const newInventory = [...inventory];
-    const itemIndex = newInventory.findIndex(item => item.id === itemId);
+    removeFromInventory(itemId, 1);
     
-    if (itemIndex !== -1) {
-      newInventory[itemIndex].quantity -= 1;
-      if (newInventory[itemIndex].quantity <= 0) {
-        newInventory.splice(itemIndex, 1);
-      }
-    }
-    
-    setCharacter(newCharacter);
-    setInventory(newInventory);
+    // Update character
+    updateCharacter(newCharacter);
   };
 
   // Handle unequipping an item
@@ -125,9 +84,11 @@ export default function Home() {
     
     // Handle rings separately
     if (slot === "rings" && ringIndex !== undefined) {
-      itemId = newCharacter.equipment.rings[ringIndex];
+      const ringsArray = [...(newCharacter.equipment.rings || [])];
+      itemId = ringsArray[ringIndex];
       if (itemId) {
-        newCharacter.equipment.rings[ringIndex] = "";
+        ringsArray[ringIndex] = "";
+        newCharacter.equipment.rings = ringsArray;
       }
     } else {
       itemId = (newCharacter.equipment as any)[slot];
@@ -138,19 +99,11 @@ export default function Home() {
     
     // Add the item back to inventory
     if (itemId) {
-      const newInventory = [...inventory];
-      const existingItem = newInventory.find(item => item.id === itemId);
-      
-      if (existingItem) {
-        existingItem.quantity += 1;
-      } else {
-        newInventory.push({ id: itemId, quantity: 1 });
-      }
-      
-      setInventory(newInventory);
+      addToInventory(itemId, 1);
     }
     
-    setCharacter(newCharacter);
+    // Update character
+    updateCharacter(newCharacter);
   };
 
   return (
@@ -203,17 +156,15 @@ export default function Home() {
             <TabsContent value="combat">
               <CombatSystem 
                 character={character}
-                setCharacter={setCharacter}
+                setCharacter={(updates) => updateCharacter(updates)}
                 inventory={inventory}
-                setInventory={setInventory}
+                setInventory={(newInventory) => updateInventory(newInventory)}
                 gameItems={gameItems}
               />
             </TabsContent>
 
             <TabsContent value="marketplace">
               <Marketplace
-                character={character}
-                inventory={inventory}
                 onUpdateCharacter={handleUpdateCharacter}
                 onUpdateInventory={handleUpdateInventory}
               />

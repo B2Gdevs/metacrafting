@@ -114,13 +114,16 @@ export default function ListingDialog({
     localStorage.setItem('completeListing', JSON.stringify(completeListing));
     
     // Update the draft listing in the store
-    store.updateDraftListing({
+    updateDraftListing({
       quantity,
       requireAllCurrencies: requireBothCurrencies,
-      currencies
+      currencies: {
+        [CurrencyType.GOLD]: goldPrice > 0 ? goldPrice : 0,
+        [CurrencyType.GEMS]: gemsPrice > 0 ? gemsPrice : 0
+      }
     });
     
-    // Call onListItem directly
+    // Call the onListItem callback
     onListItem();
     onClose();
   };
