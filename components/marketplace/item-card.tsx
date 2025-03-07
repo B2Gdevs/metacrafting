@@ -12,56 +12,39 @@ import {
   getRarityTextClass
 } from "@/lib/marketplace-utils";
 import { Coins, Diamond, Info, Package, ShoppingCart, Plus } from "lucide-react";
+import { CurrencyType, MarketplaceItem } from "@/lib/marketplace-types";
 
 interface ItemCardProps {
-  itemId: string;
-  price: number;
-  currency: "gold" | "gems";
-  stock: number;
+  item: MarketplaceItem;
   action: "buy" | "sell" | "list";
   gameItems: Record<string, Item>;
   playerGold: number;
   playerGems: number;
   onAction: () => void;
-  dualCurrency?: { gold: number; gems: number };
-  requireBothCurrencies?: boolean;
   character?: CharacterStats;
   onShowOverlay?: (top: number) => void;
   onHideOverlay?: () => void;
 }
 
 export default function ItemCard({
-  itemId,
-  price,
-  currency,
-  stock,
+  item,
   action,
   gameItems,
   playerGold,
   playerGems,
   onAction,
-  dualCurrency,
-  requireBothCurrencies = false,
   character,
   onShowOverlay,
   onHideOverlay
 }: ItemCardProps) {
-  const item = gameItems[itemId];
+  const gameItem = item.originalItem || gameItems[item.id];
   
-  console.log(`ItemCard for ${itemId}:`, { 
-    dualCurrency, 
-    requireBothCurrencies,
-    currency,
-    price,
-    stock
-  });
-  
-  if (!item) {
-    console.error(`Item not found: ${itemId}`);
+  if (!gameItem) {
+    console.error(`Item not found: ${item.id}`);
     return null;
   }
   
-  const canAfford = canAffordItem(playerGold, playerGems, price, currency, dualCurrency, requireBothCurrencies);
+  const canAfford = canAffordItem(playerGold, playerGems, item);
   
   const actionText = {
     buy: "Buy",
@@ -70,13 +53,13 @@ export default function ItemCard({
   };
   
   const actionDisabled = {
-    buy: !canAfford || stock <= 0,
+    buy: !canAfford || item.quantity <= 0,
     sell: false,
     list: false
   };
   
   const stockText = {
-    buy: `Stock: ${stock}`,
+    buy: `Stock: ${item.quantity}`,
     sell: "",
     list: ""
   };
@@ -95,14 +78,14 @@ export default function ItemCard({
 
   // Get button style based on rarity
   const getButtonStyle = () => {
-    if (!item.rarity) return {};
+    if (!gameItem.rarity) return {};
     
     const baseStyles = {
       fontWeight: 'bold',
       border: '2px solid',
     };
     
-    switch (item.rarity) {
+    switch (gameItem.rarity) {
       case "uncommon":
         return {
           ...baseStyles,
@@ -149,7 +132,7 @@ export default function ItemCard({
   };
 
   const handleMouseEnter = (e: React.MouseEvent<HTMLDivElement>) => {
-    if (item.equippable && character && onShowOverlay) {
+    if (gameItem.equippable && character && onShowOverlay) {
       const rect = e.currentTarget.getBoundingClientRect();
       onShowOverlay(rect.top);
     }
@@ -157,33 +140,30 @@ export default function ItemCard({
   
   // Currency Display - Always visible
   const renderCurrencyDisplay = () => {
-    // Debug the dual currency data
-    console.log("renderCurrencyDisplay for " + itemId + ":", {
-      dualCurrency,
-      hasDualCurrency: dualCurrency && dualCurrency.gold > 0 && dualCurrency.gems > 0,
-      requireBothCurrencies
-    });
+    const hasGold = !!item.currencies[CurrencyType.GOLD];
+    const hasGems = !!item.currencies[CurrencyType.GEMS];
+    const hasBothCurrencies = hasGold && hasGems;
 
-    if (dualCurrency && dualCurrency.gold > 0 && dualCurrency.gems > 0) {
+    if (hasBothCurrencies) {
       return (
         <div className="mb-3">
           {/* Dual Currency Badge - Prominent at the top */}
           <div className={`w-full mb-2 flex justify-center`}>
             <Badge 
               className={`px-3 py-1 text-xs font-bold ${
-                requireBothCurrencies 
+                item.requireAllCurrencies 
                   ? "bg-purple-900/60 text-purple-200 border border-purple-500/50" 
                   : "bg-gray-800/60 text-gray-200 border border-gray-600/50"
               }`}
             >
-              {requireBothCurrencies ? "REQUIRES BOTH CURRENCIES" : "ACCEPTS EITHER CURRENCY"}
+              {item.requireAllCurrencies ? "REQUIRES BOTH CURRENCIES" : "ACCEPTS EITHER CURRENCY"}
             </Badge>
           </div>
           
           {/* Currency Display Box */}
           <div className={`
             rounded-lg p-2 border border-gray-700/50
-            ${requireBothCurrencies 
+            ${item.requireAllCurrencies 
               ? 'bg-gradient-to-r from-amber-900/30 via-purple-900/20 to-blue-900/30 border-purple-700/30' 
               : 'bg-gradient-to-r from-amber-900/30 to-blue-900/30'}
           `}>
@@ -193,23 +173,18 @@ export default function ItemCard({
                 <div className="p-1 rounded-full bg-amber-900/40">
                   <Coins className="h-4 w-4 text-amber-400" />
                 </div>
-                <p className="text-sm font-semibold text-amber-400">{dualCurrency.gold} Gold</p>
+                <p className="text-sm font-semibold text-amber-400">{item.currencies[CurrencyType.GOLD]} Gold</p>
               </div>
-              {!requireBothCurrencies && currency === "gold" && (
-                <Badge variant="outline" className="text-xs bg-amber-900/30 border-amber-500/30 text-amber-400">
-                  Selected
-                </Badge>
-              )}
             </div>
             
             {/* Connector */}
             <div className="flex justify-center items-center my-1">
               <div className={`px-3 py-0.5 rounded-full text-xs font-bold ${
-                requireBothCurrencies 
+                item.requireAllCurrencies 
                   ? "bg-purple-900/40 text-purple-300" 
                   : "bg-gray-800 text-gray-400"
               }`}>
-                {requireBothCurrencies ? "AND" : "OR"}
+                {item.requireAllCurrencies ? "AND" : "OR"}
               </div>
             </div>
             
@@ -219,30 +194,26 @@ export default function ItemCard({
                 <div className="p-1 rounded-full bg-blue-900/40">
                   <Diamond className="h-4 w-4 text-blue-400" />
                 </div>
-                <p className="text-sm font-semibold text-blue-400">{dualCurrency.gems} Gems</p>
+                <p className="text-sm font-semibold text-blue-400">{item.currencies[CurrencyType.GEMS]} Gems</p>
               </div>
-              {!requireBothCurrencies && currency === "gems" && (
-                <Badge variant="outline" className="text-xs bg-blue-900/30 border-blue-500/30 text-blue-400">
-                  Selected
-                </Badge>
-              )}
             </div>
           </div>
         </div>
       );
     } else {
+      // Single currency display
       return (
         <div className="mb-3">
           <p className="text-sm font-semibold flex items-center justify-center">
-            {currency === "gold" ? (
+            {hasGold ? (
               <span className="flex items-center bg-amber-900/20 px-3 py-1.5 rounded-lg border border-amber-700/30">
                 <Coins className="h-5 w-5 mr-2 text-amber-500" />
-                <span className="text-amber-400 font-bold">{price} Gold</span>
+                <span className="text-amber-400 font-bold">{item.currencies[CurrencyType.GOLD]} Gold</span>
               </span>
             ) : (
               <span className="flex items-center bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-700/30">
                 <Diamond className="h-5 w-5 mr-2 text-blue-500" />
-                <span className="text-blue-400 font-bold">{price} Gems</span>
+                <span className="text-blue-400 font-bold">{item.currencies[CurrencyType.GEMS]} Gems</span>
               </span>
             )}
           </p>
@@ -253,13 +224,13 @@ export default function ItemCard({
 
   return (
     <div 
-      className={`border-2 ${getRarityClass(item.rarity || 'common')} rounded-lg overflow-hidden bg-card text-card-foreground shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] relative`}
+      className={`border-2 ${getRarityClass(gameItem.rarity || 'common')} rounded-lg overflow-hidden bg-card text-card-foreground shadow-md hover:shadow-lg transition-all duration-300 hover:scale-[1.02] relative`}
       style={{
-        boxShadow: item.rarity === 'legendary' ? '0 0 20px rgba(251,191,36,0.6)' : 
-                  item.rarity === 'mythic' ? '0 0 25px rgba(239,68,68,0.7)' :
-                  item.rarity === 'epic' ? '0 0 15px rgba(192,132,252,0.5)' :
-                  item.rarity === 'rare' ? '0 0 15px rgba(96,165,250,0.5)' :
-                  item.rarity === 'uncommon' ? '0 0 15px rgba(74,222,128,0.5)' : 'none'
+        boxShadow: gameItem.rarity === 'legendary' ? '0 0 20px rgba(251,191,36,0.6)' : 
+                  gameItem.rarity === 'mythic' ? '0 0 25px rgba(239,68,68,0.7)' :
+                  gameItem.rarity === 'epic' ? '0 0 15px rgba(192,132,252,0.5)' :
+                  gameItem.rarity === 'rare' ? '0 0 15px rgba(96,165,250,0.5)' :
+                  gameItem.rarity === 'uncommon' ? '0 0 15px rgba(74,222,128,0.5)' : 'none'
       }}
       onMouseEnter={handleMouseEnter}
       onMouseLeave={onHideOverlay}
@@ -267,43 +238,43 @@ export default function ItemCard({
       {/* Header */}
       <div className="p-4 pb-2">
         <div className="flex justify-between items-start">
-          <h3 className={`text-lg font-bold ${getRarityTextClass(item.rarity || 'common')}`}>
-            {getItemTypeIcon(item.type)} {item.name}
+          <h3 className={`text-lg font-bold ${getRarityTextClass(gameItem.rarity || 'common')}`}>
+            {getItemTypeIcon(gameItem.type)} {gameItem.name}
           </h3>
           <div className="flex flex-col gap-1 items-end">
-            {item.rarity && (
-              <Badge variant="outline" className={`capitalize ${getRarityTextClass(item.rarity)}`}>
-                {item.rarity}
+            {gameItem.rarity && (
+              <Badge variant="outline" className={`capitalize ${getRarityTextClass(gameItem.rarity)}`}>
+                {gameItem.rarity}
               </Badge>
             )}
-            {item.equippable && character && (
-              <Badge variant="outline" className={`text-xs ${item.rarity && item.rarity !== "common" ? getRarityTextClass(item.rarity) : ""}`}>
+            {gameItem.equippable && character && (
+              <Badge variant="outline" className={`text-xs ${gameItem.rarity && gameItem.rarity !== "common" ? getRarityTextClass(gameItem.rarity) : ""}`}>
                 Equippable
               </Badge>
             )}
-            {stock > 1 && (
+            {item.quantity > 1 && (
               <Badge variant="outline" className="text-xs bg-gray-800 text-gray-200">
-                Qty: {stock}
+                Qty: {item.quantity}
               </Badge>
             )}
           </div>
         </div>
-        {item.type && (
+        {gameItem.type && (
           <Badge variant="secondary" className="capitalize mt-1">
-            {item.type}
+            {gameItem.type}
           </Badge>
         )}
       </div>
       
       {/* Content */}
       <div className="px-4 py-2 max-h-[100px] overflow-y-auto">
-        <p className="text-sm text-muted-foreground">{item.description}</p>
+        <p className="text-sm text-muted-foreground">{gameItem.description}</p>
         
-        {item.stats && Object.keys(item.stats).length > 0 && (
+        {gameItem.stats && Object.keys(gameItem.stats).length > 0 && (
           <div className="mt-2">
             <p className="text-sm font-semibold">Stats:</p>
             <div className="grid grid-cols-2 gap-1">
-              {Object.entries(item.stats).map(([stat, value]) => (
+              {Object.entries(gameItem.stats).map(([stat, value]) => (
                 <div key={stat} className="flex items-center justify-between">
                   <span className="text-xs text-muted-foreground">{formatStatName(stat)}:</span>
                   <span className={`text-xs font-medium ${value > 0 ? 'text-green-400' : value < 0 ? 'text-red-400' : 'text-gray-400'}`}>
@@ -315,11 +286,11 @@ export default function ItemCard({
           </div>
         )}
         
-        {item.equippable && (
+        {gameItem.equippable && (
           <div className="flex items-center space-x-1 mt-2">
             <span className="text-xs text-muted-foreground">Slot:</span>
-            <span className="text-xs font-medium capitalize">{item.slot}</span>
-            {item.equippable && character && (
+            <span className="text-xs font-medium capitalize">{gameItem.slot}</span>
+            {gameItem.equippable && character && (
               <TooltipProvider>
                 <Tooltip>
                   <TooltipTrigger asChild>
@@ -336,10 +307,10 @@ export default function ItemCard({
           </div>
         )}
         
-        {item.specialAbility && (
+        {gameItem.specialAbility && (
           <div className="mt-2">
             <p className="text-xs font-semibold">Special Ability:</p>
-            <p className="text-xs text-purple-400">{item.specialAbility}</p>
+            <p className="text-xs text-purple-400">{gameItem.specialAbility}</p>
           </div>
         )}
       </div>
@@ -350,7 +321,7 @@ export default function ItemCard({
         {renderCurrencyDisplay()}
         
         <div className="flex justify-between items-center mb-2">
-          {action === "buy" && stock > 0 && (
+          {action === "buy" && item.quantity > 0 && (
             <p className="text-xs text-muted-foreground">{stockText[action]}</p>
           )}
           
@@ -373,10 +344,10 @@ export default function ItemCard({
       </div>
       
       {/* Rarity effects - particles for legendary and mythic items */}
-      {(item.rarity === 'legendary' || item.rarity === 'mythic') && (
+      {(gameItem.rarity === 'legendary' || gameItem.rarity === 'mythic') && (
         <div className="absolute inset-0 pointer-events-none overflow-hidden">
           <div className={`absolute inset-0 bg-gradient-to-b 
-            ${item.rarity === 'legendary' ? 'from-amber-500/5 to-amber-500/10' : 'from-red-500/5 to-red-500/10'} 
+            ${gameItem.rarity === 'legendary' ? 'from-amber-500/5 to-amber-500/10' : 'from-red-500/5 to-red-500/10'} 
             animate-pulse`}></div>
           
           {Array.from({ length: 10 }).map((_, i) => {
@@ -384,7 +355,7 @@ export default function ItemCard({
             const left = `${Math.random() * 100}%`;
             const delay = `${Math.random() * 2}s`;
             const size = `${Math.random() * 0.5 + 0.5}px`;
-            const color = item.rarity === 'legendary' ? 'bg-amber-400' : 'bg-red-400';
+            const color = gameItem.rarity === 'legendary' ? 'bg-amber-400' : 'bg-red-400';
             
             return (
               <div 

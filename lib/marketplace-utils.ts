@@ -1,6 +1,7 @@
 "use client"
 
 import { Item } from "@/components/item-slot";
+import { CurrencyType, CurrencyValues, MarketplaceItem } from "@/lib/marketplace-types";
 
 /**
  * Get CSS class for item rarity
@@ -93,17 +94,20 @@ export const getItemTypeIcon = (type: string): string => {
 };
 
 /**
- * Format currency display
+ * Format currency for display
  */
-export const formatCurrency = (amount: number, currency: "gold" | "gems"): string => {
-  return `${amount} ${currency === "gold" ? "Gold" : "Gems"}`;
+export const formatCurrency = (amount: number, currency: CurrencyType): string => {
+  return `${amount} ${currency === CurrencyType.GOLD ? 'Gold' : 'Gems'}`;
 };
 
 /**
- * Format dual currency display
+ * Format dual currency for display
  */
-export const formatDualCurrency = (dualCurrency: { gold: number; gems: number }): string => {
-  return `${dualCurrency.gold} Gold + ${dualCurrency.gems} Gems`;
+export const formatDualCurrency = (currencies: Partial<CurrencyValues>): string => {
+  const parts = [];
+  if (currencies[CurrencyType.GOLD]) parts.push(`${currencies[CurrencyType.GOLD]} Gold`);
+  if (currencies[CurrencyType.GEMS]) parts.push(`${currencies[CurrencyType.GEMS]} Gems`);
+  return parts.join(' and ');
 };
 
 /**
@@ -112,27 +116,32 @@ export const formatDualCurrency = (dualCurrency: { gold: number; gems: number })
 export const canAffordItem = (
   playerGold: number,
   playerGems: number,
-  price: number,
-  currency: "gold" | "gems",
-  dualCurrency?: { gold: number; gems: number },
-  requireBothCurrencies?: boolean
+  item: MarketplaceItem
 ): boolean => {
-  if (dualCurrency) {
-    if (requireBothCurrencies) {
-      // Both currencies are required (AND)
-      return playerGold >= dualCurrency.gold && playerGems >= dualCurrency.gems;
-    } else {
-      // Either currency is acceptable (OR)
-      return (currency === "gold" && playerGold >= dualCurrency.gold) || 
-             (currency === "gems" && playerGems >= dualCurrency.gems);
+  const { currencies, requireAllCurrencies } = item;
+  const goldPrice = currencies[CurrencyType.GOLD] || 0;
+  const gemsPrice = currencies[CurrencyType.GEMS] || 0;
+  
+  if (requireAllCurrencies) {
+    // All currencies are required (AND logic)
+    if (goldPrice > 0 && gemsPrice > 0) {
+      return playerGold >= goldPrice && playerGems >= gemsPrice;
+    } else if (goldPrice > 0) {
+      return playerGold >= goldPrice;
+    } else if (gemsPrice > 0) {
+      return playerGems >= gemsPrice;
     }
+    return true; // No price set
+  } else {
+    // Any currency is acceptable (OR logic)
+    if (goldPrice > 0 && playerGold >= goldPrice) {
+      return true;
+    }
+    if (gemsPrice > 0 && playerGems >= gemsPrice) {
+      return true;
+    }
+    return goldPrice === 0 && gemsPrice === 0; // Can afford if free
   }
-  
-  if (currency === "gold") {
-    return playerGold >= price;
-  }
-  
-  return playerGems >= price;
 };
 
 /**

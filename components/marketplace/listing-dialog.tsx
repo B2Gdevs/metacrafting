@@ -20,67 +20,53 @@ import {
 } from "@/lib/marketplace-utils";
 import { Coins, Diamond, Package, AlertCircle, X, ArrowRight, Sparkles, Flame, Star, Plus } from "lucide-react";
 import { Switch } from "@/components/ui/switch";
+import { CurrencyType, CurrencyValues, PlayerMarketItem } from "@/lib/marketplace-types";
+import { useMarketplaceStore } from "@/lib/marketplace-store";
 
 interface ListingDialogProps {
   open: boolean;
   onClose: () => void;
-  itemId: string | null;
+  draftListing: PlayerMarketItem | null;
   gameItems: Record<string, Item>;
   inventoryQuantity: number;
-  listingPrice: number;
-  setListingPrice: (price: number) => void;
-  listingCurrency: "gold" | "gems";
-  setListingCurrency: (currency: "gold" | "gems") => void;
-  listingQuantity: number;
-  setListingQuantity: (quantity: number) => void;
-  useDualCurrency: boolean;
-  setUseDualCurrency: (use: boolean) => void;
-  dualCurrencyValues: { gold: number; gems: number };
-  setDualCurrencyValues: (values: { gold: number; gems: number }) => void;
-  requireBothCurrencies?: boolean;
-  setRequireBothCurrencies?: (require: boolean) => void;
+  updateDraftListing: (updates: Partial<PlayerMarketItem>) => void;
   onListItem: () => void;
 }
 
 export default function ListingDialog({
   open,
   onClose,
-  itemId,
+  draftListing,
   gameItems,
   inventoryQuantity,
-  listingPrice,
-  setListingPrice,
-  listingCurrency,
-  setListingCurrency,
-  listingQuantity,
-  setListingQuantity,
-  useDualCurrency,
-  setUseDualCurrency,
-  dualCurrencyValues,
-  setDualCurrencyValues,
-  requireBothCurrencies = false,
-  setRequireBothCurrencies = () => {},
+  updateDraftListing,
   onListItem
 }: ListingDialogProps) {
-  if (!itemId) return null;
+  if (!draftListing) return null;
   
-  const item = gameItems[itemId];
+  const item = draftListing.originalItem || gameItems[draftListing.id];
   if (!item) return null;
+
+  // Get the store
+  const store = useMarketplaceStore();
 
   // Local state for validation
   const [error, setError] = useState<string | null>(null);
-  const [goldPrice, setGoldPrice] = useState<number>(listingCurrency === "gold" ? listingPrice : dualCurrencyValues.gold);
-  const [gemsPrice, setGemsPrice] = useState<number>(listingCurrency === "gems" ? listingPrice : dualCurrencyValues.gems);
-  const [quantity, setQuantity] = useState<number>(listingQuantity);
-  const [bothCurrencies, setBothCurrencies] = useState<boolean>(requireBothCurrencies);
+  const [goldPrice, setGoldPrice] = useState<number>(draftListing.currencies[CurrencyType.GOLD] || 0);
+  const [gemsPrice, setGemsPrice] = useState<number>(draftListing.currencies[CurrencyType.GEMS] || 0);
+  const [quantity, setQuantity] = useState<number>(draftListing.quantity);
+  const [requireBothCurrencies, setRequireBothCurrencies] = useState<boolean>(draftListing.requireAllCurrencies);
   
-  // Update local state when props change
+  // Update local state when draft listing changes
   useEffect(() => {
-    setGoldPrice(listingCurrency === "gold" ? listingPrice : dualCurrencyValues.gold);
-    setGemsPrice(listingCurrency === "gems" ? listingPrice : dualCurrencyValues.gems);
-    setQuantity(listingQuantity);
-    setBothCurrencies(requireBothCurrencies);
-  }, [listingPrice, listingCurrency, dualCurrencyValues, listingQuantity, requireBothCurrencies]);
+    if (draftListing) {
+      console.log("Draft listing updated in dialog:", draftListing);
+      setGoldPrice(draftListing.currencies[CurrencyType.GOLD] || 0);
+      setGemsPrice(draftListing.currencies[CurrencyType.GEMS] || 0);
+      setQuantity(draftListing.quantity);
+      setRequireBothCurrencies(draftListing.requireAllCurrencies);
+    }
+  }, [draftListing]);
 
   // Get rarity-specific styles
   const rarityTextClass = getRarityTextClass(item.rarity || 'common');
@@ -101,56 +87,42 @@ export default function ListingDialog({
       return;
     }
     
-    // Update parent state
-    setListingQuantity(quantity);
+    // Build the currencies object with only positive values
+    const currencies: Partial<CurrencyValues> = {};
     
-    // IMPORTANT: Always set dual currency values if both are provided
-    if (goldPrice > 0 && gemsPrice > 0) {
-      // Both currencies have values, enable dual currency
-      setUseDualCurrency(true);
-      setDualCurrencyValues({ gold: goldPrice, gems: gemsPrice });
-      setRequireBothCurrencies(bothCurrencies);
-      
-      // Set a primary currency for the backend
-      if (bothCurrencies) {
-        // For AND logic, use gold as primary
-        setListingCurrency("gold");
-        setListingPrice(goldPrice);
-      } else {
-        // For OR logic, use the higher value as primary
-        setListingCurrency(goldPrice > gemsPrice * 10 ? "gold" : "gems");
-        setListingPrice(goldPrice > gemsPrice * 10 ? goldPrice : gemsPrice);
-      }
-      
-      console.log("Setting dual currency in dialog:", {
-        gold: goldPrice,
-        gems: gemsPrice,
-        requireBoth: bothCurrencies,
-        quantity: quantity,
-        primaryCurrency: bothCurrencies ? "gold" : (goldPrice > gemsPrice * 10 ? "gold" : "gems"),
-        primaryPrice: bothCurrencies ? goldPrice : (goldPrice > gemsPrice * 10 ? goldPrice : gemsPrice)
-      });
-    } else {
-      // Single currency mode
-      setUseDualCurrency(false);
-      setDualCurrencyValues({ gold: 0, gems: 0 });
-      setRequireBothCurrencies(false);
-      
-      if (goldPrice > 0) {
-        setListingCurrency("gold");
-        setListingPrice(goldPrice);
-      } else {
-        setListingCurrency("gems");
-        setListingPrice(gemsPrice);
-      }
+    if (goldPrice > 0) {
+      currencies[CurrencyType.GOLD] = goldPrice;
     }
     
-    // Call the onListItem callback after setting all the state
-    // Use a timeout to ensure state updates are processed
-    setTimeout(() => {
-      onListItem();
-      onClose();
-    }, 100);
+    if (gemsPrice > 0) {
+      currencies[CurrencyType.GEMS] = gemsPrice;
+    }
+    
+    // Create a complete listing object with all the form values
+    const completeListing: PlayerMarketItem = {
+      id: draftListing.id,
+      currencies: currencies,
+      requireAllCurrencies: requireBothCurrencies,
+      quantity: quantity,
+      originalItem: draftListing.originalItem,
+      seller: draftListing.seller
+    };
+    
+    console.log("Complete listing to be added:", completeListing);
+    
+    // Store the complete listing in localStorage as a backup
+    localStorage.setItem('completeListing', JSON.stringify(completeListing));
+    
+    // Update the draft listing in the store
+    store.updateDraftListing({
+      quantity,
+      requireAllCurrencies: requireBothCurrencies,
+      currencies
+    });
+    
+    // Call onListItem directly
+    onListItem();
+    onClose();
   };
   
   // Get animation class based on rarity
@@ -410,8 +382,8 @@ export default function ListingDialog({
               <div className="bg-gray-800/40 p-3 rounded-xl border border-gray-700/50 backdrop-blur-sm">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-2">
-                    <div className={`p-1.5 rounded-lg ${bothCurrencies ? 'bg-purple-900/30' : 'bg-gray-700/50'}`}>
-                      {bothCurrencies ? (
+                    <div className={`p-1.5 rounded-lg ${requireBothCurrencies ? 'bg-purple-900/30' : 'bg-gray-700/50'}`}>
+                      {requireBothCurrencies ? (
                         <Plus className="h-4 w-4 text-purple-400" />
                       ) : (
                         <div className="flex items-center">
@@ -423,14 +395,14 @@ export default function ListingDialog({
                     </div>
                     <div>
                       <Label htmlFor="currency-toggle" className="font-semibold text-sm">
-                        {bothCurrencies ? (
+                        {requireBothCurrencies ? (
                           <span className="text-purple-200">Require both currencies</span>
                         ) : (
                           <span className="text-gray-200">Accept either currency</span>
                         )}
                       </Label>
                       <p className="text-xs text-gray-400">
-                        {bothCurrencies 
+                        {requireBothCurrencies 
                           ? "Buyers must pay both gold AND gems" 
                           : "Buyers can pay with either gold OR gems"}
                       </p>
@@ -438,9 +410,9 @@ export default function ListingDialog({
                   </div>
                   <Switch
                     id="currency-toggle"
-                    checked={bothCurrencies}
-                    onCheckedChange={setBothCurrencies}
-                    className={bothCurrencies ? "bg-purple-600" : ""}
+                    checked={requireBothCurrencies}
+                    onCheckedChange={setRequireBothCurrencies}
+                    className={requireBothCurrencies ? "bg-purple-600" : ""}
                   />
                 </div>
               </div>

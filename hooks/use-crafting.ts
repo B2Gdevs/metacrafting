@@ -446,8 +446,6 @@ export const useCrafting = ({
 
   // Function to determine the pattern used in the grid
   const getGridPattern = useCallback((grid: (string | null)[]) => {
-    // Log the grid for debugging
-    console.log("Current grid for pattern detection:", grid);
     
     // Check for all patterns and return all that match
     const patterns = [];
@@ -525,7 +523,6 @@ export const useCrafting = ({
     
     // Get the pattern used in crafting BEFORE clearing the grid
     const patternUsed = getGridPattern(grid);
-    console.log("Pattern used for crafting:", patternUsed); // Debug log
     
     // Create a copy of the inventory to work with
     const updatedInventory = [...inventory];
@@ -545,7 +542,6 @@ export const useCrafting = ({
         existingItem.quantity += 1;
         // Make sure to update the pattern even for existing items
         existingItem.craftingPattern = patternUsed;
-        console.log("Updated existing item with pattern:", existingItem); // Debug log
       } else {
         const newItem = { 
           id: craftedItemId, 
@@ -553,7 +549,6 @@ export const useCrafting = ({
           craftingPattern: patternUsed // Store the pattern used
         };
         updatedInventory.push(newItem);
-        console.log("Added new item with pattern:", newItem); // Debug log
       }
       
       // Calculate experience gain

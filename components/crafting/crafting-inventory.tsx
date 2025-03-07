@@ -92,14 +92,6 @@ export default function CraftingInventory({
   const [typeFilter, setTypeFilter] = useState<ItemType | "all">("all")
   const [rarityFilter, setRarityFilter] = useState<ItemRarity | "all">("all")
   
-  // Debug: Log items with patterns
-  useEffect(() => {
-    const itemsWithPatterns = inventory.filter(item => item.craftingPattern);
-    if (itemsWithPatterns.length > 0) {
-      console.log("Items with patterns:", itemsWithPatterns);
-    }
-  }, [inventory]);
-  
   // Filter inventory items based on search and filters
   const filteredInventory = inventory.filter(item => {
     const gameItem = gameItems[item.id]

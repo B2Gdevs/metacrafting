@@ -1,17 +1,35 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import { useState, useEffect } from "react";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { Input } from "@/components/ui/input";
+import { Button } from "@/components/ui/button";
+import { Badge } from "@/components/ui/badge";
 import { CharacterStats } from "@/components/character-sheet";
+import { Item } from "@/components/item-slot";
 import { useMarketplace } from "@/hooks/use-marketplace";
-import FilterControls from "@/components/marketplace/filter-controls";
+import { 
+  CurrencyType,
+  MarketplaceItem,
+  PlayerMarketItem,
+  NpcItem
+} from "@/lib/marketplace-types";
 import ItemCard from "@/components/marketplace/item-card";
 import ListingDialog from "@/components/marketplace/listing-dialog";
+import FilterControls from "@/components/marketplace/filter-controls";
 import NotificationSystem from "@/components/marketplace/notification-system";
-import { calculateSellPrice, formatStatName, getRarityTextClass } from "@/lib/marketplace-utils";
+import { 
+  getMarketplaceTabClass, 
+  getMarketplaceContainerClass,
+  getFilterContainerClass,
+  getMarketplaceTextClass,
+  getMarketplaceIconClass,
+  calculateSellPrice,
+  formatStatName,
+  getRarityTextClass
+} from "@/lib/marketplace-utils";
+import { Coins, Diamond, Search, X, Package, Store, Users, Filter, ChevronDown, ChevronUp, ArrowUp, ArrowDown } from "lucide-react";
 import { gameItems } from "@/lib/items";
-import { ArrowUp, ArrowDown } from "lucide-react";
-import { Item } from "@/components/item-slot";
 
 interface MarketplaceProps {
   character: CharacterStats;
@@ -26,18 +44,14 @@ export default function Marketplace({
   onUpdateCharacter, 
   onUpdateInventory
 }: MarketplaceProps) {
-  const {
+  const { 
     // State
+    npcItems,
+    playerMarketItems,
     selectedTab,
     selectedAction,
     notifications,
-    itemToList,
-    listingPrice,
-    listingCurrency,
-    listingQuantity,
-    useDualCurrency,
-    dualCurrencyValues,
-    requireBothCurrencies,
+    draftListing,
     filterState,
     searchTerm,
     
@@ -48,13 +62,8 @@ export default function Marketplace({
     handleSellItem,
     handleOpenListingDialog,
     handleListItem,
-    setListingPrice,
-    setListingCurrency,
-    setListingQuantity,
-    setUseDualCurrency,
-    setDualCurrencyValues,
-    setRequireBothCurrencies,
-    setItemToList,
+    updateDraftListing,
+    clearDraftListing,
     updateFilterState,
     resetFilters,
     setSearchTerm,
@@ -71,371 +80,342 @@ export default function Marketplace({
     onUpdateInventory
   });
 
-  // Debug: Log NPC items to see if dual currency is present
-  useEffect(() => {
-    console.log("filteredNpcItems:", filteredNpcItems);
-  }, [filteredNpcItems]);
-
-  // Debug: Log player items to see if dual currency is present
-  useEffect(() => {
-    console.log("filteredPlayerItems:", filteredPlayerItems);
-  }, [filteredPlayerItems]);
-
   // State for the equipment comparison overlay
   const [overlayData, setOverlayData] = useState<{
     visible: boolean;
     item: Item | null;
-    equippedItem: Item | null;
-    equippedRings: Item[];
     top: number;
   }>({
     visible: false,
     item: null,
-    equippedItem: null,
-    equippedRings: [],
     top: 0
   });
-
-  // Function to show comparison overlay
+  
+  const [showFilters, setShowFilters] = useState(false);
+  
   const showComparisonOverlay = (itemId: string, top: number) => {
+    // Only show comparison for equippable items
     const item = gameItems[itemId];
-    if (!item || !item.equippable || !character) return;
+    if (!item || !item.equippable || !item.slot) return;
     
-    let equippedItem: Item | null = null;
-    let equippedRings: Item[] = [];
-    
-    if (item.slot === "rings") {
-      // For rings, get all equipped rings
-      const ringIds = character.equipment.rings || [];
-      if (Array.isArray(ringIds) && ringIds.length > 0) {
-        equippedRings = ringIds
-          .map(id => typeof id === 'string' ? gameItems[id] : null)
-          .filter(Boolean) as Item[];
-        
-        // Use the first ring for comparison
-        if (equippedRings.length > 0) {
-          equippedItem = equippedRings[0];
-        }
-      }
-    } else if (item.slot) {
-      const equippedItemId = character.equipment[item.slot];
-      if (equippedItemId && typeof equippedItemId === 'string') {
-        equippedItem = gameItems[equippedItemId];
-      }
+    // Find currently equipped item in that slot
+    const equippedItemId = character.equipment[item.slot as keyof typeof character.equipment] as string | undefined;
+    if (equippedItemId) {
+      setOverlayData({
+        visible: true,
+        item,
+        top
+      });
     }
-    
-    setOverlayData({
-      visible: true,
-      item,
-      equippedItem,
-      equippedRings,
-      top
-    });
   };
-
-  // Function to hide comparison overlay
+  
   const hideComparisonOverlay = () => {
     setOverlayData(prev => ({ ...prev, visible: false }));
   };
-
-  // Compare stats with equipped item
+  
   const getStatComparison = (stat: string, value: number, equippedItem: Item | null) => {
-    if (!equippedItem || !equippedItem.stats) {
-      return { difference: value, isPositive: value > 0 };
-    }
+    if (!equippedItem || !equippedItem.stats) return { value, diff: 0 };
     
-    const equippedValue = equippedItem.stats[stat] || 0;
-    const difference = value - equippedValue;
+    const currentValue = equippedItem.stats[stat] || 0;
+    const diff = value - currentValue;
     
-    if (difference === 0) return null;
-    
-    return {
-      difference,
-      isPositive: difference > 0
-    };
+    return { value, diff };
   };
-
-  // Get inventory quantity for the item being listed
+  
   const getInventoryQuantity = (itemId: string | null): number => {
     if (!itemId) return 0;
-    const item = inventory.find(item => item.id === itemId);
-    return item ? item.quantity : 0;
+    
+    const inventoryItem = inventory.find(item => item.id === itemId);
+    return inventoryItem ? inventoryItem.quantity : 0;
   };
-
-  // Check if we can equip more rings
-  const canEquipMoreRings = 
-    overlayData.item?.slot === "rings" && 
-    Array.isArray(character.equipment.rings) && 
-    character.equipment.rings.length < 10;
-
+  
   return (
-    <div className="relative">
-      <div className="container mx-auto p-4">
-        <h1 className="text-2xl font-bold mb-4">Marketplace</h1>
-        
-        <div className="flex justify-between items-center mb-4">
-          <div className="flex space-x-2">
-            <span className="font-semibold">Gold:</span>
-            <span>{character.gold}</span>
-          </div>
-          <div className="flex space-x-2">
-            <span className="font-semibold">Gems:</span>
-            <span>{character.gems}</span>
-          </div>
-        </div>
-        
-        <Tabs value={selectedTab} onValueChange={(value) => setSelectedTab(value as "npc" | "player")}>
-          <TabsList className="grid w-full grid-cols-2 mb-4">
-            <TabsTrigger value="npc">NPC Shop</TabsTrigger>
-            <TabsTrigger value="player">Player Market</TabsTrigger>
-          </TabsList>
-          
-          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-            <div className="md:col-span-1">
-              <FilterControls
-                filterState={filterState}
-                updateFilterState={updateFilterState}
-                resetFilters={resetFilters}
-                searchTerm={searchTerm}
-                setSearchTerm={setSearchTerm}
-              />
-            </div>
-            
-            <div className="md:col-span-3">
-              <TabsContent value="npc" className="mt-0">
-                <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                  {filteredNpcItems.map(item => {
-                    console.log("Rendering NPC item:", item);
-                    return (
-                      <ItemCard
-                        key={item.id}
-                        itemId={item.id}
-                        price={item.price}
-                        currency={item.currency}
-                        stock={item.stock}
-                        action="buy"
-                        gameItems={gameItems}
-                        playerGold={character.gold}
-                        playerGems={character.gems}
-                        onAction={() => handleBuyItem(item.id, item.price, item.currency, item.dualCurrency, item.requireBothCurrencies)}
-                        dualCurrency={item.dualCurrency}
-                        requireBothCurrencies={item.requireBothCurrencies}
-                        character={character}
-                        onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
-                        onHideOverlay={hideComparisonOverlay}
-                      />
-                    );
-                  })}
-                  {filteredNpcItems.length === 0 && (
-                    <div className="col-span-full text-center py-8">
-                      <p className="text-muted-foreground">No items match your filters</p>
-                    </div>
-                  )}
-                </div>
-              </TabsContent>
-              
-              <TabsContent value="player" className="mt-0">
-                <div className="flex justify-between items-center mb-4">
-                  <div className="flex space-x-2">
-                    <button
-                      className={`px-4 py-2 rounded-md ${selectedAction === 'buy' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}
-                      onClick={() => setSelectedAction('buy')}
-                    >
-                      Buy
-                    </button>
-                    <button
-                      className={`px-4 py-2 rounded-md ${selectedAction === 'sell' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}
-                      onClick={() => setSelectedAction('sell')}
-                    >
-                      Sell
-                    </button>
-                  </div>
-                </div>
-                
-                {selectedAction === 'buy' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {filteredPlayerItems.map(item => {
-                      console.log("Rendering player item:", item);
-                      return (
-                        <ItemCard
-                          key={`${item.id}-${item.seller}`}
-                          itemId={item.id}
-                          price={item.price}
-                          currency={item.currency}
-                          stock={item.quantity}
-                          action="buy"
-                          gameItems={gameItems}
-                          playerGold={character.gold}
-                          playerGems={character.gems}
-                          onAction={() => handleBuyItem(item.id, item.price, item.currency, item.dualCurrency, item.requireBothCurrencies, item.seller)}
-                          dualCurrency={item.dualCurrency}
-                          requireBothCurrencies={item.requireBothCurrencies}
-                          character={character}
-                          onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
-                          onHideOverlay={hideComparisonOverlay}
-                        />
-                      );
-                    })}
-                    {filteredPlayerItems.length === 0 && (
-                      <div className="col-span-full text-center py-8">
-                        <p className="text-muted-foreground">No player listings match your filters</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-                
-                {selectedAction === 'sell' && (
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {inventoryWithPrices.map(item => (
-                      <ItemCard
-                        key={item.id}
-                        itemId={item.id}
-                        price={calculateSellPrice(gameItems[item.id])}
-                        currency="gold"
-                        stock={item.quantity}
-                        action="list"
-                        gameItems={gameItems}
-                        playerGold={character.gold}
-                        playerGems={character.gems}
-                        onAction={() => handleOpenListingDialog(item.id)}
-                        character={character}
-                        onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
-                        onHideOverlay={hideComparisonOverlay}
-                      />
-                    ))}
-                    {inventoryWithPrices.length === 0 && (
-                      <div className="col-span-full text-center py-8">
-                        <p className="text-muted-foreground">Your inventory is empty</p>
-                      </div>
-                    )}
-                  </div>
-                )}
-              </TabsContent>
-            </div>
-          </div>
-        </Tabs>
-        
-        {/* Listing Dialog */}
-        <ListingDialog
-          open={!!itemToList}
-          onClose={() => setItemToList(null)}
-          itemId={itemToList}
-          gameItems={gameItems}
-          inventoryQuantity={getInventoryQuantity(itemToList)}
-          listingPrice={listingPrice}
-          setListingPrice={setListingPrice}
-          listingCurrency={listingCurrency}
-          setListingCurrency={setListingCurrency}
-          listingQuantity={listingQuantity}
-          setListingQuantity={setListingQuantity}
-          useDualCurrency={useDualCurrency}
-          setUseDualCurrency={setUseDualCurrency}
-          dualCurrencyValues={dualCurrencyValues}
-          setDualCurrencyValues={setDualCurrencyValues}
-          requireBothCurrencies={requireBothCurrencies}
-          setRequireBothCurrencies={setRequireBothCurrencies}
-          onListItem={handleListItem}
-        />
-        
-        {/* Notifications */}
-        <NotificationSystem notifications={notifications} />
-      </div>
+    <div className="container mx-auto p-4">
+      {/* Notifications */}
+      <NotificationSystem notifications={notifications} />
       
       {/* Fixed position comparison overlay */}
       {overlayData.visible && overlayData.item && (
         <div 
-          className="fixed right-4 z-50 w-72 bg-gray-900/95 border border-gray-700 rounded-lg p-4 shadow-xl"
+          className="fixed right-4 z-40 bg-gray-900/95 border border-gray-700 rounded-lg shadow-xl p-4 w-64"
           style={{ top: `${overlayData.top}px` }}
         >
-          <div className="text-sm font-semibold mb-2 border-b border-gray-700 pb-1">
-            Equipment Comparison
-          </div>
+          <h3 className="text-lg font-bold mb-2">Stat Comparison</h3>
           
-          {overlayData.item.slot === "rings" ? (
-            <>
-              <div className="text-xs mb-2">
-                {overlayData.equippedRings.length > 0 ? (
-                  <>
-                    <span className="text-gray-400">
-                      Equipped Rings: {overlayData.equippedRings.length}/10
-                    </span>
-                    {canEquipMoreRings && (
-                      <span className="text-green-400 block">Can equip this ring</span>
-                    )}
-                    <div className="mt-1 space-y-1">
-                      {overlayData.equippedRings.slice(0, 3).map((ring, index) => (
-                        <div key={index} className="flex items-center">
-                          <span className={`text-xs ${getRarityTextClass(ring.rarity || 'common')}`}>
-                            • {ring.name}
-                          </span>
-                        </div>
-                      ))}
-                      {overlayData.equippedRings.length > 3 && (
-                        <div className="text-xs text-gray-400">
-                          +{overlayData.equippedRings.length - 3} more rings
-                        </div>
-                      )}
-                    </div>
-                  </>
-                ) : (
-                  <span className="text-green-400">No rings equipped</span>
-                )}
-              </div>
-            </>
-          ) : (
-            <>
-              <div className="text-xs mb-2">
-                {overlayData.equippedItem ? (
-                  <span className="text-gray-400">
-                    Currently equipped: <span className={getRarityTextClass(overlayData.equippedItem.rarity || 'common')}>
-                      {overlayData.equippedItem.name}
-                    </span>
-                  </span>
-                ) : (
-                  <span className="text-green-400">No item equipped in this slot</span>
-                )}
-              </div>
-            </>
-          )}
-          
-          {overlayData.item.stats && Object.keys(overlayData.item.stats).length > 0 && (
-            <div className="space-y-1">
-              <div className="text-xs font-semibold mb-1">Stat Changes:</div>
-              {Object.entries(overlayData.item.stats).map(([stat, value]) => {
-                const comparison = getStatComparison(stat, value, overlayData.equippedItem);
+          {(() => {
+            const newItem = overlayData.item;
+            if (!newItem || !newItem.slot) return null;
+            
+            const equippedItemId = character.equipment[newItem.slot as keyof typeof character.equipment] as string | undefined;
+            const equippedItem = equippedItemId ? gameItems[equippedItemId] : null;
+            
+            return (
+              <>
+                <div className="mb-2">
+                  <span className="text-sm text-gray-400">Currently equipped:</span>
+                  <p className="font-medium">{equippedItem ? equippedItem.name : 'Nothing'}</p>
+                </div>
                 
-                return (
-                  <div key={stat} className="flex items-center justify-between text-xs">
-                    <span className="text-gray-400">{formatStatName(stat)}:</span>
-                    <div className="flex items-center">
-                      {!overlayData.equippedItem ? (
-                        <span className={value > 0 ? "text-green-400" : "text-red-400"}>
-                          {value > 0 ? "+" : ""}{value}
-                        </span>
-                      ) : (
-                        <span className={`flex items-center ${comparison && comparison.isPositive ? 'text-green-400' : comparison && comparison.difference < 0 ? 'text-red-400' : 'text-gray-400'}`}>
-                          {comparison && comparison.isPositive ? (
-                            <ArrowUp className="h-3 w-3 mr-0.5" />
-                          ) : comparison && comparison.difference < 0 ? (
-                            <ArrowDown className="h-3 w-3 mr-0.5" />
-                          ) : null}
-                          {comparison ? (comparison.difference !== 0 ? `${comparison.difference > 0 ? "+" : ""}${comparison.difference}` : "=") : ""}
-                        </span>
-                      )}
-                    </div>
-                  </div>
-                );
-              })}
-            </div>
-          )}
-          
-          {overlayData.item.specialAbility && (
-            <div className="mt-2 text-xs">
-              <span className="text-purple-400 font-semibold">Special: {overlayData.item.specialAbility}</span>
-            </div>
-          )}
+                <div className="space-y-1">
+                  {newItem.stats && Object.entries(newItem.stats).map(([stat, value]) => {
+                    const { diff } = getStatComparison(stat, value, equippedItem);
+                    return (
+                      <div key={stat} className="flex justify-between items-center">
+                        <span className="text-sm capitalize">{formatStatName(stat)}</span>
+                        <div className="flex items-center">
+                          <span className="text-sm font-medium">{value}</span>
+                          {diff !== 0 && (
+                            <span className={`ml-1 text-xs ${diff > 0 ? 'text-green-400' : 'text-red-400'}`}>
+                              ({diff > 0 ? '+' : ''}{diff})
+                            </span>
+                          )}
+                        </div>
+                      </div>
+                    );
+                  })}
+                </div>
+              </>
+            );
+          })()}
         </div>
       )}
+      
+      {/* Marketplace Header */}
+      <div className="flex justify-between items-center mb-6">
+        <h1 className="text-2xl font-bold">Marketplace</h1>
+        <div className="flex items-center space-x-4">
+          <div className="flex items-center bg-amber-900/20 px-3 py-1.5 rounded-lg border border-amber-700/30">
+            <Coins className="h-5 w-5 mr-2 text-amber-500" />
+            <span className="text-amber-400 font-bold">{character.gold} Gold</span>
+          </div>
+          <div className="flex items-center bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-700/30">
+            <Diamond className="h-5 w-5 mr-2 text-blue-500" />
+            <span className="text-blue-400 font-bold">{character.gems} Gems</span>
+          </div>
+        </div>
+      </div>
+      
+      {/* Search and Filter */}
+      <div className="mb-6 flex flex-col md:flex-row gap-4">
+        <div className="relative flex-1">
+          <Input
+            placeholder="Search items..."
+            value={searchTerm}
+            onChange={(e) => setSearchTerm(e.target.value)}
+            className="pl-10"
+          />
+          <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
+          {searchTerm && (
+            <button 
+              onClick={() => setSearchTerm('')}
+              className="absolute right-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground hover:text-foreground"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+        
+        <Button 
+          variant="outline" 
+          className="flex items-center gap-2"
+          onClick={() => setShowFilters(!showFilters)}
+        >
+          <Filter className="h-4 w-4" />
+          Filters
+          {showFilters ? <ChevronUp className="h-4 w-4" /> : <ChevronDown className="h-4 w-4" />}
+        </Button>
+      </div>
+      
+      {/* Filter Panel */}
+      {showFilters && (
+        <div className={`mb-6 p-4 border rounded-lg ${getFilterContainerClass(selectedTab)}`}>
+          <FilterControls 
+            filterState={filterState}
+            updateFilterState={updateFilterState}
+            resetFilters={resetFilters}
+            searchTerm={searchTerm}
+            setSearchTerm={setSearchTerm}
+          />
+        </div>
+      )}
+      
+      {/* Marketplace Tabs */}
+      <Tabs 
+        defaultValue="npc" 
+        value={selectedTab} 
+        onValueChange={setSelectedTab as (value: string) => void}
+        className="w-full"
+      >
+        <TabsList className="grid w-full grid-cols-2 mb-4">
+          <TabsTrigger 
+            value="npc" 
+            className={getMarketplaceTabClass("npc", selectedTab === "npc")}
+          >
+            <Store className={`mr-2 h-4 w-4 ${getMarketplaceIconClass("npc")}`} />
+            <span className={getMarketplaceTextClass("npc")}>NPC Shop</span>
+          </TabsTrigger>
+          <TabsTrigger 
+            value="player" 
+            className={getMarketplaceTabClass("player", selectedTab === "player")}
+          >
+            <Users className={`mr-2 h-4 w-4 ${getMarketplaceIconClass("player")}`} />
+            <span className={getMarketplaceTextClass("player")}>Player Market</span>
+          </TabsTrigger>
+        </TabsList>
+        
+        <div className={`p-4 rounded-lg ${getMarketplaceContainerClass(selectedTab)}`}>
+          <TabsContent value="npc" className="mt-0">
+            <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              {filteredNpcItems.map(item => {
+                return (
+                  <ItemCard
+                    key={item.id}
+                    item={item}
+                    action="buy"
+                    gameItems={gameItems}
+                    playerGold={character.gold}
+                    playerGems={character.gems}
+                    onAction={() => handleBuyItem(
+                      item.id, 
+                      item.currencies, 
+                      item.requireAllCurrencies
+                    )}
+                    character={character}
+                    onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
+                    onHideOverlay={hideComparisonOverlay}
+                  />
+                );
+              })}
+              {filteredNpcItems.length === 0 && (
+                <div className="col-span-full text-center py-8">
+                  <p className="text-muted-foreground">No items match your filters</p>
+                </div>
+              )}
+            </div>
+          </TabsContent>
+          
+          <TabsContent value="player" className="mt-0">
+            <div className="flex justify-between items-center mb-4">
+              <div className="flex space-x-2">
+                <button
+                  className={`px-4 py-2 rounded-md ${selectedAction === 'buy' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}
+                  onClick={() => setSelectedAction('buy')}
+                >
+                  Buy
+                </button>
+                <button
+                  className={`px-4 py-2 rounded-md ${selectedAction === 'sell' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}
+                  onClick={() => setSelectedAction('sell')}
+                >
+                  Sell
+                </button>
+              </div>
+            </div>
+            
+            {selectedAction === 'buy' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {filteredPlayerItems.map(item => {
+                  return (
+                    <ItemCard
+                      key={`${item.id}-${item.seller}`}
+                      item={item}
+                      action="buy"
+                      gameItems={gameItems}
+                      playerGold={character.gold}
+                      playerGems={character.gems}
+                      onAction={() => handleBuyItem(
+                        item.id, 
+                        item.currencies, 
+                        item.requireAllCurrencies, 
+                        item.seller
+                      )}
+                      character={character}
+                      onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
+                      onHideOverlay={hideComparisonOverlay}
+                    />
+                  );
+                })}
+                {filteredPlayerItems.length === 0 && (
+                  <div className="col-span-full text-center py-8">
+                    <p className="text-muted-foreground">No player listings match your filters</p>
+                  </div>
+                )}
+              </div>
+            )}
+            
+            {selectedAction === 'sell' && (
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {inventoryWithPrices.map(item => {
+                  const gameItem = gameItems[item.id];
+                  if (!gameItem) return null;
+                  
+                  // Create a MarketplaceItem for the ItemCard
+                  const marketItem: MarketplaceItem = {
+                    id: item.id,
+                    currencies: {
+                      [CurrencyType.GOLD]: item.price,
+                      [CurrencyType.GEMS]: 0
+                    },
+                    requireAllCurrencies: false,
+                    quantity: item.quantity,
+                    originalItem: gameItem
+                  };
+                  
+                  return (
+                    <div key={item.id} className="border rounded-lg p-4 flex flex-col">
+                      <div className="flex justify-between items-start mb-2">
+                        <h3 className="text-lg font-bold">{gameItem.name}</h3>
+                        <Badge variant="outline">{item.quantity}x</Badge>
+                      </div>
+                      <p className="text-sm text-muted-foreground mb-4">{gameItem.description}</p>
+                      <div className="mt-auto flex justify-between items-center">
+                        <div className="flex items-center">
+                          <Coins className="h-4 w-4 mr-1 text-amber-500" />
+                          <span className="text-amber-400">{item.price} Gold</span>
+                        </div>
+                        <div className="space-x-2">
+                          <Button 
+                            variant="outline" 
+                            size="sm"
+                            onClick={() => handleOpenListingDialog(item.id)}
+                          >
+                            <Package className="h-4 w-4 mr-1" />
+                            List
+                          </Button>
+                          <Button 
+                            variant="default" 
+                            size="sm"
+                            onClick={() => handleSellItem(item.id)}
+                          >
+                            <Coins className="h-4 w-4 mr-1" />
+                            Sell
+                          </Button>
+                        </div>
+                      </div>
+                    </div>
+                  );
+                })}
+                {inventoryWithPrices.length === 0 && (
+                  <div className="col-span-full text-center py-8">
+                    <p className="text-muted-foreground">No items in inventory to sell</p>
+                  </div>
+                )}
+              </div>
+            )}
+          </TabsContent>
+        </div>
+      </Tabs>
+      
+      {/* Listing Dialog */}
+      <ListingDialog
+        open={!!draftListing}
+        onClose={clearDraftListing}
+        draftListing={draftListing}
+        gameItems={gameItems}
+        inventoryQuantity={draftListing ? getInventoryQuantity(draftListing.id) : 0}
+        updateDraftListing={updateDraftListing}
+        onListItem={handleListItem}
+      />
     </div>
   );
 } 

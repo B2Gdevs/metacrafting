@@ -19,6 +19,7 @@ export type Item = {
   type: ItemType
   subType?: string
   value?: number
+  price?: number
   magicValue?: number
   requiredLevel?: number
   stats?: {
