@@ -1,35 +1,31 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Input } from "@/components/ui/input";
-import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { CharacterStats } from "@/components/character-sheet";
 import { Item } from "@/components/item-slot";
-import { useMarketplace } from "@/hooks/use-marketplace";
-import { 
-  CurrencyType,
-  MarketplaceItem,
-  PlayerMarketItem,
-  NpcItem
-} from "@/lib/marketplace-types";
+import FilterControls from "@/components/marketplace/filter-controls";
 import ItemCard from "@/components/marketplace/item-card";
 import ListingDialog from "@/components/marketplace/listing-dialog";
-import FilterControls from "@/components/marketplace/filter-controls";
 import NotificationSystem from "@/components/marketplace/notification-system";
-import { 
-  getMarketplaceTabClass, 
-  getMarketplaceContainerClass,
-  getFilterContainerClass,
-  getMarketplaceTextClass,
-  getMarketplaceIconClass,
-  calculateSellPrice,
-  formatStatName,
-  getRarityTextClass
-} from "@/lib/marketplace-utils";
-import { Coins, Diamond, Search, X, Package, Store, Users, Filter, ChevronDown, ChevronUp, ArrowUp, ArrowDown } from "lucide-react";
+import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
+import { Input } from "@/components/ui/input";
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
+import { useMarketplace } from "@/hooks/use-marketplace";
 import { gameItems } from "@/lib/items";
+import {
+  CurrencyType,
+  MarketplaceItem
+} from "@/lib/marketplace-types";
+import {
+  formatStatName,
+  getFilterContainerClass,
+  getMarketplaceContainerClass,
+  getMarketplaceIconClass,
+  getMarketplaceTabClass,
+  getMarketplaceTextClass
+} from "@/lib/marketplace-utils";
+import { ChevronDown, ChevronUp, Coins, Diamond, Filter, Package, Search, Store, Users, X } from "lucide-react";
+import { useState } from "react";
 
 interface MarketplaceProps {
   character: CharacterStats;
@@ -98,15 +94,12 @@ export default function Marketplace({
     const item = gameItems[itemId];
     if (!item || !item.equippable || !item.slot) return;
     
-    // Find currently equipped item in that slot
-    const equippedItemId = character.equipment[item.slot as keyof typeof character.equipment] as string | undefined;
-    if (equippedItemId) {
-      setOverlayData({
-        visible: true,
-        item,
-        top
-      });
-    }
+    // Show comparison regardless of whether there's an item equipped or not
+    setOverlayData({
+      visible: true,
+      item,
+      top
+    });
   };
   
   const hideComparisonOverlay = () => {
@@ -146,7 +139,16 @@ export default function Marketplace({
             const newItem = overlayData.item;
             if (!newItem || !newItem.slot) return null;
             
-            const equippedItemId = character.equipment[newItem.slot as keyof typeof character.equipment] as string | undefined;
+            let equippedItemId: string | undefined;
+            
+            // Handle rings specially since they're stored as an array
+            if (newItem.slot === 'rings') {
+              const ringsArray = character.equipment.rings;
+              equippedItemId = ringsArray && ringsArray.length > 0 ? ringsArray[0] : undefined;
+            } else {
+              equippedItemId = character.equipment[newItem.slot as keyof typeof character.equipment] as string | undefined;
+            }
+            
             const equippedItem = equippedItemId ? gameItems[equippedItemId] : null;
             
             return (
