@@ -193,6 +193,12 @@ const filterByStatRanges = (gameItem: Item, statRanges: Record<string, [number, 
   if (!gameItem.stats) return true;
   
   for (const [stat, [min, max]] of Object.entries(statRanges)) {
+    // If min is greater than 0, the item should have this stat
+    if (min > 0 && (gameItem.stats[stat] === undefined || gameItem.stats[stat] === null)) {
+      return false;
+    }
+    
+    // If the item has the stat, check if it's within range
     if (gameItem.stats[stat] !== undefined) {
       const statValue = gameItem.stats[stat];
       if (statValue < min || statValue > max) {
