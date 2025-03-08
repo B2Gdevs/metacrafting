@@ -6,14 +6,16 @@ import FilterControls from "@/components/marketplace/filter-controls";
 import ItemCard from "@/components/marketplace/item-card";
 import ListingDialog from "@/components/marketplace/listing-dialog";
 import NotificationSystem from "@/components/marketplace/notification-system";
+import DebugFilter from "@/components/marketplace/debug-filter";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { useMarketplace } from "@/hooks/use-marketplace";
+import { useGameStore } from "@/lib/store";
 import { gameItems } from "@/lib/items";
 import {
   CurrencyType,
+  CurrencyValues,
   MarketplaceItem
 } from "@/lib/marketplace-types";
 import {
@@ -27,21 +29,96 @@ import {
 import { ChevronDown, ChevronUp, Coins, Diamond, Filter, Package, Search, Store, Users, X } from "lucide-react";
 import { useState } from "react";
 
+// Constants
+const TABS = {
+  NPC: "npc",
+  PLAYER: "player"
+} as const;
+
+const ACTIONS = {
+  BUY: "buy",
+  SELL: "sell"
+} as const;
+
 interface MarketplaceProps {
-  character: CharacterStats;
-  inventory: Array<{ id: string; quantity: number }>;
   onUpdateCharacter: (character: CharacterStats) => void;
   onUpdateInventory: (inventory: Array<{ id: string; quantity: number }>) => void;
 }
 
+// Inventory Item Card component
+const InventoryItemCard = ({ 
+  item, 
+  gameItem, 
+  onOpenListingDialog, 
+  onSellItem 
+}: { 
+  item: { id: string; quantity: number; price: number }; 
+  gameItem: Item; 
+  onOpenListingDialog: (id: string) => void; 
+  onSellItem: (id: string) => void; 
+}) => (
+  <div className="border rounded-lg p-4 flex flex-col">
+    <div className="flex justify-between items-start mb-2">
+      <h3 className="text-lg font-bold">{gameItem.name}</h3>
+      <Badge variant="outline">{item.quantity}x</Badge>
+    </div>
+    <p className="text-sm text-muted-foreground mb-4">{gameItem.description}</p>
+    <div className="mt-auto flex justify-between items-center">
+      <div className="flex items-center">
+        <Coins className="h-4 w-4 mr-1 text-amber-500" />
+        <span className="text-amber-400">{item.price} Gold</span>
+      </div>
+      <div className="space-x-2">
+        <Button 
+          variant="outline" 
+          size="sm"
+          onClick={() => onOpenListingDialog(item.id)}
+        >
+          <Package className="h-4 w-4 mr-1" />
+          List
+        </Button>
+        <Button 
+          variant="default" 
+          size="sm"
+          onClick={() => onSellItem(item.id)}
+        >
+          <Coins className="h-4 w-4 mr-1" />
+          Sell
+        </Button>
+      </div>
+    </div>
+  </div>
+);
+
+// Currency Display component
+const CurrencyDisplay = ({ 
+  value, 
+  type 
+}: { 
+  value: number; 
+  type: "gold" | "gems" 
+}) => (
+  <div className={`flex items-center bg-${type === "gold" ? "amber" : "blue"}-900/20 px-3 py-1.5 rounded-lg border border-${type === "gold" ? "amber" : "blue"}-700/30`}>
+    {type === "gold" ? (
+      <Coins className="h-5 w-5 mr-2 text-amber-500" />
+    ) : (
+      <Diamond className="h-5 w-5 mr-2 text-blue-500" />
+    )}
+    <span className={`text-${type === "gold" ? "amber" : "blue"}-400 font-bold`}>
+      {value} {type === "gold" ? "Gold" : "Gems"}
+    </span>
+  </div>
+);
+
 export default function Marketplace({ 
-  character, 
-  inventory, 
   onUpdateCharacter, 
   onUpdateInventory
 }: MarketplaceProps) {
-  const { 
+  // Get state and actions from the game store
+  const {
     // State
+    character,
+    inventory,
     npcItems,
     playerMarketItems,
     selectedTab,
@@ -51,13 +128,13 @@ export default function Marketplace({
     filterState,
     searchTerm,
     
-    // Handlers
+    // Actions
     setSelectedTab,
     setSelectedAction,
-    handleBuyItem,
-    handleSellItem,
-    handleOpenListingDialog,
-    handleListItem,
+    buyItem,
+    sellItem,
+    openListingDialog,
+    listItem,
     updateDraftListing,
     clearDraftListing,
     updateFilterState,
@@ -65,16 +142,15 @@ export default function Marketplace({
     setSearchTerm,
     
     // Computed values
-    filteredNpcItems,
-    filteredPlayerItems,
-    inventoryWithPrices
-  } = useMarketplace({
-    character,
-    inventory,
-    gameItems,
-    onUpdateCharacter,
-    onUpdateInventory
-  });
+    getFilteredNpcItems,
+    getFilteredPlayerItems,
+    getInventoryWithPrices
+  } = useGameStore();
+
+  // Get filtered items
+  const filteredNpcItems = getFilteredNpcItems();
+  const filteredPlayerItems = getFilteredPlayerItems();
+  const inventoryWithPrices = getInventoryWithPrices();
 
   // State for the equipment comparison overlay
   const [overlayData, setOverlayData] = useState<{
@@ -120,6 +196,47 @@ export default function Marketplace({
     
     const inventoryItem = inventory.find(item => item.id === itemId);
     return inventoryItem ? inventoryItem.quantity : 0;
+  };
+
+  // Sync state changes with parent component
+  const handleBuyItem = (itemId: string, currencies: Partial<CurrencyValues>, requireAllCurrencies: boolean, seller?: string) => {
+    buyItem(itemId, currencies, requireAllCurrencies, seller);
+    
+    // Get the updated character and inventory after the purchase
+    const updatedCharacter = { ...character };
+    
+    // Update currencies based on the purchase
+    if (requireAllCurrencies) {
+      // Deduct all currencies
+      if (currencies[CurrencyType.GOLD]) {
+        updatedCharacter.gold -= currencies[CurrencyType.GOLD];
+      }
+      if (currencies[CurrencyType.GEMS]) {
+        updatedCharacter.gems -= currencies[CurrencyType.GEMS];
+      }
+    } else {
+      // Deduct only one currency (prioritize gold)
+      if (currencies[CurrencyType.GOLD]) {
+        updatedCharacter.gold -= currencies[CurrencyType.GOLD];
+      } else if (currencies[CurrencyType.GEMS]) {
+        updatedCharacter.gems -= currencies[CurrencyType.GEMS];
+      }
+    }
+    
+    // Update parent components
+    onUpdateCharacter(updatedCharacter);
+    onUpdateInventory(inventory);
+  };
+
+  const handleSellItem = (itemId: string) => {
+    sellItem(itemId);
+    onUpdateCharacter(character);
+    onUpdateInventory(inventory);
+  };
+
+  const handleListItem = () => {
+    listItem();
+    onUpdateInventory(inventory);
   };
   
   return (
@@ -186,14 +303,8 @@ export default function Marketplace({
       <div className="flex justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Marketplace</h1>
         <div className="flex items-center space-x-4">
-          <div className="flex items-center bg-amber-900/20 px-3 py-1.5 rounded-lg border border-amber-700/30">
-            <Coins className="h-5 w-5 mr-2 text-amber-500" />
-            <span className="text-amber-400 font-bold">{character.gold} Gold</span>
-          </div>
-          <div className="flex items-center bg-blue-900/20 px-3 py-1.5 rounded-lg border border-blue-700/30">
-            <Diamond className="h-5 w-5 mr-2 text-blue-500" />
-            <span className="text-blue-400 font-bold">{character.gems} Gems</span>
-          </div>
+          <CurrencyDisplay value={character.gold} type="gold" />
+          <CurrencyDisplay value={character.gems} type="gems" />
         </div>
       </div>
       
@@ -243,51 +354,49 @@ export default function Marketplace({
       
       {/* Marketplace Tabs */}
       <Tabs 
-        defaultValue="npc" 
+        defaultValue={TABS.NPC} 
         value={selectedTab} 
         onValueChange={setSelectedTab as (value: string) => void}
         className="w-full"
       >
         <TabsList className="grid w-full grid-cols-2 mb-4">
           <TabsTrigger 
-            value="npc" 
-            className={getMarketplaceTabClass("npc", selectedTab === "npc")}
+            value={TABS.NPC} 
+            className={getMarketplaceTabClass(TABS.NPC, selectedTab === TABS.NPC)}
           >
-            <Store className={`mr-2 h-4 w-4 ${getMarketplaceIconClass("npc")}`} />
-            <span className={getMarketplaceTextClass("npc")}>NPC Shop</span>
+            <Store className={`mr-2 h-4 w-4 ${getMarketplaceIconClass(TABS.NPC)}`} />
+            <span className={getMarketplaceTextClass(TABS.NPC)}>NPC Shop</span>
           </TabsTrigger>
           <TabsTrigger 
-            value="player" 
-            className={getMarketplaceTabClass("player", selectedTab === "player")}
+            value={TABS.PLAYER} 
+            className={getMarketplaceTabClass(TABS.PLAYER, selectedTab === TABS.PLAYER)}
           >
-            <Users className={`mr-2 h-4 w-4 ${getMarketplaceIconClass("player")}`} />
-            <span className={getMarketplaceTextClass("player")}>Player Market</span>
+            <Users className={`mr-2 h-4 w-4 ${getMarketplaceIconClass(TABS.PLAYER)}`} />
+            <span className={getMarketplaceTextClass(TABS.PLAYER)}>Player Market</span>
           </TabsTrigger>
         </TabsList>
         
         <div className={`p-4 rounded-lg ${getMarketplaceContainerClass(selectedTab)}`}>
-          <TabsContent value="npc" className="mt-0">
+          <TabsContent value={TABS.NPC} className="mt-0">
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {filteredNpcItems.map(item => {
-                return (
-                  <ItemCard
-                    key={item.id}
-                    item={item}
-                    action="buy"
-                    gameItems={gameItems}
-                    playerGold={character.gold}
-                    playerGems={character.gems}
-                    onAction={() => handleBuyItem(
-                      item.id, 
-                      item.currencies, 
-                      item.requireAllCurrencies
-                    )}
-                    character={character}
-                    onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
-                    onHideOverlay={hideComparisonOverlay}
-                  />
-                );
-              })}
+              {filteredNpcItems.map((item, index) => (
+                <ItemCard
+                  key={`${item.id}-${index}`}
+                  item={item}
+                  action={ACTIONS.BUY}
+                  gameItems={gameItems}
+                  playerGold={character.gold}
+                  playerGems={character.gems}
+                  onAction={() => handleBuyItem(
+                    item.id, 
+                    item.currencies, 
+                    item.requireAllCurrencies
+                  )}
+                  character={character}
+                  onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
+                  onHideOverlay={hideComparisonOverlay}
+                />
+              ))}
               {filteredNpcItems.length === 0 && (
                 <div className="col-span-full text-center py-8">
                   <p className="text-muted-foreground">No items match your filters</p>
@@ -296,47 +405,45 @@ export default function Marketplace({
             </div>
           </TabsContent>
           
-          <TabsContent value="player" className="mt-0">
+          <TabsContent value={TABS.PLAYER} className="mt-0">
             <div className="flex justify-between items-center mb-4">
               <div className="flex space-x-2">
                 <button
-                  className={`px-4 py-2 rounded-md ${selectedAction === 'buy' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}
-                  onClick={() => setSelectedAction('buy')}
+                  className={`px-4 py-2 rounded-md ${selectedAction === ACTIONS.BUY ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}
+                  onClick={() => setSelectedAction(ACTIONS.BUY)}
                 >
                   Buy
                 </button>
                 <button
-                  className={`px-4 py-2 rounded-md ${selectedAction === 'sell' ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}
-                  onClick={() => setSelectedAction('sell')}
+                  className={`px-4 py-2 rounded-md ${selectedAction === ACTIONS.SELL ? 'bg-primary text-primary-foreground' : 'bg-secondary text-secondary-foreground'}`}
+                  onClick={() => setSelectedAction(ACTIONS.SELL)}
                 >
                   Sell
                 </button>
               </div>
             </div>
             
-            {selectedAction === 'buy' && (
+            {selectedAction === ACTIONS.BUY && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                {filteredPlayerItems.map(item => {
-                  return (
-                    <ItemCard
-                      key={`${item.id}-${item.seller}`}
-                      item={item}
-                      action="buy"
-                      gameItems={gameItems}
-                      playerGold={character.gold}
-                      playerGems={character.gems}
-                      onAction={() => handleBuyItem(
-                        item.id, 
-                        item.currencies, 
-                        item.requireAllCurrencies, 
-                        item.seller
-                      )}
-                      character={character}
-                      onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
-                      onHideOverlay={hideComparisonOverlay}
-                    />
-                  );
-                })}
+                {filteredPlayerItems.map(item => (
+                  <ItemCard
+                    key={`${item.id}-${item.seller}`}
+                    item={item}
+                    action={ACTIONS.BUY}
+                    gameItems={gameItems}
+                    playerGold={character.gold}
+                    playerGems={character.gems}
+                    onAction={() => handleBuyItem(
+                      item.id, 
+                      item.currencies, 
+                      item.requireAllCurrencies, 
+                      item.seller
+                    )}
+                    character={character}
+                    onShowOverlay={(top) => showComparisonOverlay(item.id, top)}
+                    onHideOverlay={hideComparisonOverlay}
+                  />
+                ))}
                 {filteredPlayerItems.length === 0 && (
                   <div className="col-span-full text-center py-8">
                     <p className="text-muted-foreground">No player listings match your filters</p>
@@ -345,56 +452,20 @@ export default function Marketplace({
               </div>
             )}
             
-            {selectedAction === 'sell' && (
+            {selectedAction === ACTIONS.SELL && (
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
                 {inventoryWithPrices.map(item => {
                   const gameItem = gameItems[item.id];
                   if (!gameItem) return null;
                   
-                  // Create a MarketplaceItem for the ItemCard
-                  const marketItem: MarketplaceItem = {
-                    id: item.id,
-                    currencies: {
-                      [CurrencyType.GOLD]: item.price,
-                      [CurrencyType.GEMS]: 0
-                    },
-                    requireAllCurrencies: false,
-                    quantity: item.quantity,
-                    originalItem: gameItem
-                  };
-                  
                   return (
-                    <div key={item.id} className="border rounded-lg p-4 flex flex-col">
-                      <div className="flex justify-between items-start mb-2">
-                        <h3 className="text-lg font-bold">{gameItem.name}</h3>
-                        <Badge variant="outline">{item.quantity}x</Badge>
-                      </div>
-                      <p className="text-sm text-muted-foreground mb-4">{gameItem.description}</p>
-                      <div className="mt-auto flex justify-between items-center">
-                        <div className="flex items-center">
-                          <Coins className="h-4 w-4 mr-1 text-amber-500" />
-                          <span className="text-amber-400">{item.price} Gold</span>
-                        </div>
-                        <div className="space-x-2">
-                          <Button 
-                            variant="outline" 
-                            size="sm"
-                            onClick={() => handleOpenListingDialog(item.id)}
-                          >
-                            <Package className="h-4 w-4 mr-1" />
-                            List
-                          </Button>
-                          <Button 
-                            variant="default" 
-                            size="sm"
-                            onClick={() => handleSellItem(item.id)}
-                          >
-                            <Coins className="h-4 w-4 mr-1" />
-                            Sell
-                          </Button>
-                        </div>
-                      </div>
-                    </div>
+                    <InventoryItemCard
+                      key={item.id}
+                      item={item}
+                      gameItem={gameItem}
+                      onOpenListingDialog={openListingDialog}
+                      onSellItem={handleSellItem}
+                    />
                   );
                 })}
                 {inventoryWithPrices.length === 0 && (
@@ -417,6 +488,12 @@ export default function Marketplace({
         inventoryQuantity={draftListing ? getInventoryQuantity(draftListing.id) : 0}
         updateDraftListing={updateDraftListing}
         onListItem={handleListItem}
+      />
+      
+      {/* Debug Filter */}
+      <DebugFilter 
+        filterState={filterState}
+        resetFilters={resetFilters}
       />
     </div>
   );

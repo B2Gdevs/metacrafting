@@ -10,9 +10,9 @@ import { CombatVictory, CombatDefeat } from "@/components/combat/combat-results"
 
 interface CombatSystemProps {
   character: CharacterStats;
-  setCharacter: React.Dispatch<React.SetStateAction<CharacterStats>>;
+  setCharacter: (character: Partial<CharacterStats>) => void;
   inventory: { id: string; quantity: number }[];
-  setInventory: React.Dispatch<React.SetStateAction<{ id: string; quantity: number }[]>>;
+  setInventory: (inventory: { id: string; quantity: number }[]) => void;
   gameItems: Record<string, Item>;
   onCombatEnd?: (result: "victory" | "defeat") => void;
 }
@@ -49,8 +49,10 @@ export default function CombatSystem({
     character,
     inventory,
     gameItems,
-    onUpdateCharacter: (updatedCharacter, updatedInventory) => {
+    onUpdateCharacter: (updatedCharacter) => {
       setCharacter(updatedCharacter);
+    },
+    onUpdateInventory: (updatedInventory) => {
       if (updatedInventory) {
         setInventory(updatedInventory);
       }

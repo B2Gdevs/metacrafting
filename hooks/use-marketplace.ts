@@ -347,21 +347,6 @@ export const useMarketplace = ({
 
   // Handle listing an item on the marketplace
   const handleListItem = useCallback(() => {
-    // Try to get the complete listing from localStorage first
-    const savedListingJson = localStorage.getItem('completeListing');
-    let completeListing: PlayerMarketItem | null = null;
-    
-    if (savedListingJson) {
-      try {
-        completeListing = JSON.parse(savedListingJson);
-        console.log("Using complete listing from localStorage:", completeListing);
-      } catch (error) {
-        console.error("Error parsing complete listing from localStorage:", error);
-      }
-      
-      // Clear the localStorage item
-      localStorage.removeItem('completeListing');
-    }
     
     // If we don't have a complete listing, fall back to the store
     if (!completeListing) {

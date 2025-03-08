@@ -63,8 +63,9 @@ export interface CombatStatusEffect {
 export interface UseCombatProps {
   character: CharacterStats;
   inventory: Array<{ id: string; quantity: number }>;
-  gameItems: Record<string, Item>;
-  onUpdateCharacter: (updatedCharacter: CharacterStats, updatedInventory?: Array<{ id: string; quantity: number }>) => void;
+  gameItems?: Record<string, Item>;
+  onUpdateCharacter?: (updatedCharacter: Partial<CharacterStats>) => void;
+  onUpdateInventory?: (updatedInventory: Array<{ id: string; quantity: number }>) => void;
   onCombatEnd?: (result: "victory" | "defeat") => void;
 }
 
@@ -179,6 +180,7 @@ export const useCombat = ({
   inventory,
   gameItems,
   onUpdateCharacter,
+  onUpdateInventory,
   onCombatEnd
 }: UseCombatProps): UseCombatReturn => {
   // Combat state
@@ -460,17 +462,25 @@ export const useCombat = ({
     addToCombatLog("You have been defeated!", "system");
     
     // Update character stats
-    onUpdateCharacter({
+    const updatedCharacter = {
       ...character,
       health: Math.max(1, Math.floor(character.maxHealth * 0.1)), // Restore 10% health
       magicPoints: Math.max(1, Math.floor(character.maxMagicPoints * 0.1)) // Restore 10% mana
-    });
+    };
+    
+    // Update character and inventory
+    if (onUpdateCharacter) {
+      onUpdateCharacter(updatedCharacter);
+    }
+    if (onUpdateInventory) {
+      onUpdateInventory(inventory);
+    }
     
     // Call onCombatEnd callback if provided
     if (onCombatEnd) {
       onCombatEnd("defeat");
     }
-  }, [character, onUpdateCharacter, addToCombatLog, onCombatEnd]);
+  }, [character, onUpdateCharacter, onUpdateInventory, addToCombatLog, onCombatEnd, inventory]);
 
   // Execute player action
   const executePlayerAction = useCallback(() => {
@@ -717,7 +727,12 @@ export const useCombat = ({
     });
     
     // Update character and inventory
-    onUpdateCharacter(updatedCharacter, updatedInventory);
+    if (onUpdateCharacter) {
+      onUpdateCharacter(updatedCharacter);
+    }
+    if (onUpdateInventory) {
+      onUpdateInventory(updatedInventory);
+    }
     
     // End combat
     endCombat();
@@ -726,7 +741,7 @@ export const useCombat = ({
     if (onCombatEnd) {
       onCombatEnd("victory");
     }
-  }, [rewards, character, inventory, onUpdateCharacter, endCombat, addToCombatLog, onCombatEnd]);
+  }, [rewards, character, inventory, onUpdateCharacter, onUpdateInventory, endCombat, addToCombatLog, onCombatEnd]);
 
   // Helper function to get status effect styling
   const getStatusEffectStyle = useCallback((effect: StatusEffect) => {
