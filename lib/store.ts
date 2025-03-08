@@ -101,6 +101,148 @@ interface GameState {
   getInventoryWithPrices: () => Array<{ id: string; quantity: number; price: number }>
 }
 
+// Helper functions for filtering
+// Each filter returns true if the item passes the filter, false otherwise
+
+// Filter by search term
+const filterBySearchTerm = (item: NpcItem | PlayerMarketItem, gameItem: Item, searchTerm: string): boolean => {
+  if (!searchTerm || searchTerm.trim() === '') return true;
+  
+  const searchLower = searchTerm.toLowerCase().trim();
+  return gameItem.name.toLowerCase().includes(searchLower) || 
+         gameItem.description.toLowerCase().includes(searchLower);
+};
+
+// Filter by type
+const filterByType = (gameItem: Item, type: string): boolean => {
+  return type === 'all' || gameItem.type === type;
+};
+
+// Filter by rarity
+const filterByRarity = (gameItem: Item, rarity: string): boolean => {
+  return rarity === 'all' || gameItem.rarity === rarity;
+};
+
+// Filter by currency selection
+const filterByCurrencySelection = (
+  item: NpcItem | PlayerMarketItem, 
+  currencies: { [key: string]: number }, 
+  goldChecked: boolean, 
+  gemsChecked: boolean
+): boolean => {
+  const hasGold = currencies[CurrencyType.GOLD] > 0;
+  const hasGems = currencies[CurrencyType.GEMS] > 0;
+  
+  // If both currency filters are unchecked, show no items
+  if (!goldChecked && !gemsChecked) return false;
+  
+  // For items that require both currencies (AND logic), both currencies must be checked
+  if (item.requireAllCurrencies && (!goldChecked || !gemsChecked)) return false;
+  
+  // For items with only gold price, gold must be checked
+  if (hasGold && !hasGems && !goldChecked) return false;
+  
+  // For items with only gems price, gems must be checked
+  if (hasGems && !hasGold && !gemsChecked) return false;
+  
+  return true;
+};
+
+// Filter by price range
+const filterByPriceRange = (
+  currencies: { [key: string]: number }, 
+  goldChecked: boolean, 
+  gemsChecked: boolean,
+  minPrice: number,
+  maxPrice: number,
+  minGemsPrice: number,
+  maxGemsPrice: number
+): boolean => {
+  const hasGold = currencies[CurrencyType.GOLD] > 0;
+  const hasGems = currencies[CurrencyType.GEMS] > 0;
+  
+  // If gold is checked and the item has gold price, it MUST be within the gold price range
+  if (goldChecked && hasGold) {
+    if (currencies[CurrencyType.GOLD] < minPrice || currencies[CurrencyType.GOLD] > maxPrice) {
+      return false;
+    }
+  }
+  
+  // If gems is checked and the item has gems price, it MUST be within the gems price range
+  if (gemsChecked && hasGems) {
+    if (currencies[CurrencyType.GEMS] < minGemsPrice || currencies[CurrencyType.GEMS] > maxGemsPrice) {
+      return false;
+    }
+  }
+  
+  return true;
+};
+
+// Filter by equippable
+const filterByEquippable = (gameItem: Item, showEquippableOnly: boolean): boolean => {
+  return !showEquippableOnly || (gameItem.equippable === true);
+};
+
+// Filter by stats
+const filterByStats = (gameItem: Item, showWithStatsOnly: boolean): boolean => {
+  return !showWithStatsOnly || (gameItem.stats !== undefined && Object.keys(gameItem.stats).length > 0);
+};
+
+// Filter by stat ranges
+const filterByStatRanges = (gameItem: Item, statRanges: Record<string, [number, number]>): boolean => {
+  if (!gameItem.stats) return true;
+  
+  for (const [stat, [min, max]] of Object.entries(statRanges)) {
+    if (gameItem.stats[stat] !== undefined) {
+      const statValue = gameItem.stats[stat];
+      if (statValue < min || statValue > max) {
+        return false;
+      }
+    }
+  }
+  
+  return true;
+};
+
+// Main filter function that applies all filters
+const applyFilters = (
+  items: (NpcItem | PlayerMarketItem)[], 
+  filterState: FilterState, 
+  searchTerm: string
+): (NpcItem | PlayerMarketItem)[] => {
+  return items.filter(item => {
+    const gameItem = gameItems[item.id];
+    if (!gameItem) return false;
+    
+    // Ensure currencies object exists with default values
+    const currencies = {
+      [CurrencyType.GOLD]: item.currencies?.[CurrencyType.GOLD] || 0,
+      [CurrencyType.GEMS]: item.currencies?.[CurrencyType.GEMS] || 0
+    };
+    
+    const goldChecked = filterState.currencies[CurrencyType.GOLD];
+    const gemsChecked = filterState.currencies[CurrencyType.GEMS];
+    
+    // Apply all filters in sequence
+    return filterBySearchTerm(item, gameItem, searchTerm) &&
+           filterByType(gameItem, filterState.type) &&
+           filterByRarity(gameItem, filterState.rarity) &&
+           filterByCurrencySelection(item, currencies, goldChecked, gemsChecked) &&
+           filterByPriceRange(
+             currencies, 
+             goldChecked, 
+             gemsChecked, 
+             filterState.minPrice, 
+             filterState.maxPrice, 
+             filterState.minGemsPrice, 
+             filterState.maxGemsPrice
+           ) &&
+           filterByEquippable(gameItem, filterState.showEquippableOnly) &&
+           filterByStats(gameItem, filterState.showWithStatsOnly) &&
+           filterByStatRanges(gameItem, filterState.stats);
+  });
+};
+
 // Create the store
 export const useGameStore = create<GameState>()(
   persist(
@@ -160,7 +302,10 @@ export const useGameStore = create<GameState>()(
         requireAllCurrencies: item.requireBothCurrencies || false,
         quantity: item.stock || 0,
         originalItem: gameItems[item.id]
-      })),
+      })).filter((item, index, self) => 
+        // Ensure each item ID appears only once
+        index === self.findIndex(i => i.id === item.id)
+      ),
       playerMarketItems: [],
       selectedTab: "npc",
       selectedAction: "buy",
@@ -364,7 +509,7 @@ export const useGameStore = create<GameState>()(
         state.removeFromInventory(itemId, 1)
         
         // Update character
-        state.updateCharacter(updatedCharacter)
+        set({ character: updatedCharacter })
         
         // Add success notification
         state.addNotification(`Successfully sold ${gameItem.name} for ${sellPrice} gold`, "success")
@@ -468,9 +613,32 @@ export const useGameStore = create<GameState>()(
       clearDraftListing: () => set({ draftListing: null }),
       
       // Filter actions
-      updateFilterState: (updates) => set((state) => ({
-        filterState: { ...state.filterState, ...updates }
-      })),
+      updateFilterState: (updates) => set((state) => {
+        // Handle nested objects like currencies and stats
+        const newFilterState = { ...state.filterState };
+        
+        // Handle each update property
+        Object.entries(updates).forEach(([key, value]) => {
+          if (key === 'currencies' && typeof value === 'object') {
+            // Merge currencies
+            newFilterState.currencies = {
+              ...newFilterState.currencies,
+              ...(value as typeof newFilterState.currencies)
+            };
+          } else if (key === 'stats' && typeof value === 'object') {
+            // Merge stats
+            newFilterState.stats = {
+              ...newFilterState.stats,
+              ...(value as typeof newFilterState.stats)
+            };
+          } else {
+            // Handle regular properties
+            (newFilterState as any)[key] = value;
+          }
+        });
+        
+        return { filterState: newFilterState };
+      }),
       
       resetFilters: () => set({ filterState: defaultFilterState }),
       
@@ -479,134 +647,12 @@ export const useGameStore = create<GameState>()(
       // Computed values
       getFilteredNpcItems: () => {
         const { npcItems, filterState, searchTerm } = get()
-        
-        return npcItems.filter(item => {
-          const gameItem = gameItems[item.id]
-          if (!gameItem) return false
-          
-          // Search term filter
-          if (searchTerm && !gameItem.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
-              !gameItem.description.toLowerCase().includes(searchTerm.toLowerCase())) {
-            return false
-          }
-          
-          // Type filter
-          if (filterState.type !== "all" && gameItem.type !== filterState.type) {
-            return false
-          }
-          
-          // Rarity filter
-          if (filterState.rarity !== "all" && gameItem.rarity !== filterState.rarity) {
-            return false
-          }
-          
-          // Ensure currencies object exists with default values
-          const currencies = {
-            [CurrencyType.GOLD]: item.currencies?.[CurrencyType.GOLD] || 0,
-            [CurrencyType.GEMS]: item.currencies?.[CurrencyType.GEMS] || 0
-          }
-          
-          // Currency filter
-          const hasGold = currencies[CurrencyType.GOLD] > 0
-          const hasGems = currencies[CurrencyType.GEMS] > 0
-          
-          if (!filterState.currencies[CurrencyType.GOLD] && hasGold) {
-            return false
-          }
-          
-          if (!filterState.currencies[CurrencyType.GEMS] && hasGems) {
-            return false
-          }
-          
-          // Price range filter
-          if (hasGold && (currencies[CurrencyType.GOLD] < filterState.minPrice || 
-                          currencies[CurrencyType.GOLD] > filterState.maxPrice)) {
-            return false
-          }
-          
-          if (hasGems && (currencies[CurrencyType.GEMS] < filterState.minGemsPrice || 
-                          currencies[CurrencyType.GEMS] > filterState.maxGemsPrice)) {
-            return false
-          }
-          
-          // Equippable filter
-          if (filterState.showEquippableOnly && !gameItem.equippable) {
-            return false
-          }
-          
-          // Stats filter
-          if (filterState.showWithStatsOnly && (!gameItem.stats || Object.keys(gameItem.stats).length === 0)) {
-            return false
-          }
-          
-          return true
-        })
+        return applyFilters(npcItems, filterState, searchTerm) as NpcItem[]
       },
       
       getFilteredPlayerItems: () => {
         const { playerMarketItems, filterState, searchTerm } = get()
-        
-        return playerMarketItems.filter(item => {
-          const gameItem = gameItems[item.id]
-          if (!gameItem) return false
-          
-          // Search term filter
-          if (searchTerm && !gameItem.name.toLowerCase().includes(searchTerm.toLowerCase()) && 
-              !gameItem.description.toLowerCase().includes(searchTerm.toLowerCase())) {
-            return false
-          }
-          
-          // Type filter
-          if (filterState.type !== "all" && gameItem.type !== filterState.type) {
-            return false
-          }
-          
-          // Rarity filter
-          if (filterState.rarity !== "all" && gameItem.rarity !== filterState.rarity) {
-            return false
-          }
-          
-          // Ensure currencies object exists with default values
-          const currencies = {
-            [CurrencyType.GOLD]: item.currencies?.[CurrencyType.GOLD] || 0,
-            [CurrencyType.GEMS]: item.currencies?.[CurrencyType.GEMS] || 0
-          }
-          
-          // Currency filter
-          const hasGold = currencies[CurrencyType.GOLD] > 0
-          const hasGems = currencies[CurrencyType.GEMS] > 0
-          
-          if (!filterState.currencies[CurrencyType.GOLD] && hasGold) {
-            return false
-          }
-          
-          if (!filterState.currencies[CurrencyType.GEMS] && hasGems) {
-            return false
-          }
-          
-          // Price range filter
-          if (hasGold && (currencies[CurrencyType.GOLD] < filterState.minPrice || 
-                          currencies[CurrencyType.GOLD] > filterState.maxPrice)) {
-            return false
-          }
-          
-          if (hasGems && (currencies[CurrencyType.GEMS] < filterState.minGemsPrice || 
-                          currencies[CurrencyType.GEMS] > filterState.maxGemsPrice)) {
-            return false
-          }
-          
-          // Equippable filter
-          if (filterState.showEquippableOnly && !gameItem.equippable) {
-            return false
-          }
-          
-          // Stats filter
-          if (filterState.showWithStatsOnly && (!gameItem.stats || Object.keys(gameItem.stats).length === 0)) {
-            return false
-          }
-          
-          return true
-        })
+        return applyFilters(playerMarketItems, filterState, searchTerm) as PlayerMarketItem[]
       },
       
       getInventoryWithPrices: () => {

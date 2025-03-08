@@ -26,7 +26,7 @@ export const npcShopItems = [
   { id: "ancient_rune", price: 4, currency: CurrencyType.GEMS, stock: 2 },
   { id: "cursed_energy_ring", price: 10, currency: CurrencyType.GEMS, stock: 1 },
   
-  // Add the new status effect items
+  // Status effect items
   {
     id: "poisoned_dagger",
     price: 750,
@@ -58,7 +58,7 @@ export const npcShopItems = [
     stock: 1
   },
 
-  // Items with dual currency options - OR logic (either currency)
+  // Items with dual currency options
   {
     id: "stone",
     price: 50,
@@ -92,7 +92,7 @@ export const npcShopItems = [
     requireBothCurrencies: false
   },
   
-  // Items with dual currency options - AND logic (both currencies required)
+  // Items requiring both currencies
   {
     id: "magic_crystal",
     price: 100,
@@ -117,8 +117,6 @@ export const npcShopItems = [
     dualCurrency: { gold: 500, gems: 10 },
     requireBothCurrencies: true
   },
-
-  // Dual currency items
   {
     id: "phoenix_feather",
     price: 500,
@@ -127,22 +125,10 @@ export const npcShopItems = [
     dualCurrency: { gold: 500, gems: 5 },
     requireBothCurrencies: false
   },
-  {
-    id: "dragon_heart",
-    price: 1000,
-    currency: CurrencyType.GOLD,
-    stock: 1,
-    dualCurrency: { gold: 1000, gems: 10 },
-    requireBothCurrencies: true
-  },
   
-  // Crafting materials
-  { id: "wood", price: 10, currency: CurrencyType.GOLD, stock: 20 },
-  { id: "stone", price: 15, currency: CurrencyType.GOLD, stock: 20 },
-  { id: "iron_ore", price: 25, currency: CurrencyType.GOLD, stock: 15 },
+  // Additional crafting materials
   { id: "silver_ore", price: 40, currency: CurrencyType.GOLD, stock: 10 },
   { id: "gold_ore", price: 60, currency: CurrencyType.GOLD, stock: 5 },
-  { id: "leather", price: 20, currency: CurrencyType.GOLD, stock: 15 },
   { id: "cloth", price: 15, currency: CurrencyType.GOLD, stock: 20 },
   { id: "herbs", price: 5, currency: CurrencyType.GOLD, stock: 25 },
   
