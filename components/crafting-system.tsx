@@ -2,15 +2,14 @@
 
 import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog"
+import { Toast, ToastProvider, ToastViewport } from "@/components/ui/toast"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import { gameItems } from "@/lib/items"
 import { recipes } from "@/lib/recipes"
-import { AnimatePresence, motion } from "framer-motion"
 import { AlertTriangle, Book, CheckCircle, Info, Sparkles } from "lucide-react"
-import { useState, useEffect } from "react"
+import { useEffect, useState } from "react"
 import { type CharacterStats } from "./character-sheet"
 import RecipeBook from "./recipe-book"
-import { Toast, ToastProvider, ToastViewport } from "@/components/ui/toast"
 
 // Import new components
 import CraftingCharacterStats from "./crafting/crafting-character-stats"
@@ -100,24 +99,11 @@ export default function CraftingSystem({
       // If inventory is provided, update it separately
       if (updatedInventory) {
         onUpdateInventory(updatedInventory);
+  console.log("updatedInventory", updatedInventory)
+
       }
     }
   });
-
-  // Check if player has all required ingredients for the selected recipe
-  const hasRequiredItems = () => {
-    if (!selectedRecipe) return false;
-    
-    const requiredItems: Record<string, number> = {};
-    selectedRecipe.inputs.forEach(itemId => {
-      requiredItems[itemId] = (requiredItems[itemId] || 0) + 1;
-    });
-    
-    return Object.entries(requiredItems).every(([itemId, count]) => {
-      const inventoryItem = inventory.find(item => item.id === itemId);
-      return inventoryItem && inventoryItem.quantity >= count;
-    });
-  };
 
   // Add useEffect to automatically clear notifications after a delay
   useEffect(() => {
@@ -138,6 +124,7 @@ export default function CraftingSystem({
   const handleCraftingNotificationDismiss = () => {
     setCraftingNotification(null);
   };
+
 
   return (
     <div className="container mx-auto p-4">

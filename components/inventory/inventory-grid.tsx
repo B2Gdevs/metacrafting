@@ -1,11 +1,19 @@
 "use client"
 
-import { Item } from "@/components/item-slot";
+import { Item, ItemType, ItemRarity } from "@/components/item-slot";
 import ItemSlot from "@/components/item-slot";
 import { EquipmentSlot } from "@/lib/items";
+import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip";
+import PatternVisual from "@/components/crafting/pattern-visual";
 
 interface InventoryGridProps {
-  items: Array<{ id: string; quantity: number; gameItem: Item }>;
+  items: Array<{ 
+    id: string; 
+    quantity: number; 
+    gameItem: Item;
+    craftingPattern?: string;
+    itemHash?: string;
+  }>;
   onSelectEquipSlot?: (slot: EquipmentSlot) => void;
   onEquipItem?: (itemId: string) => void;
   emptyMessage?: string;
@@ -44,22 +52,64 @@ export default function InventoryGrid({
               >
                 {inventoryItem && (
                   <div className="w-full h-full flex items-center justify-center">
-                    <ItemSlot
-                      item={inventoryItem.gameItem}
-                      onDragStart={() => {}}
-                      quantity={inventoryItem.quantity}
-                      onClick={() => {
-                        if (onSelectEquipSlot && 
-                            onEquipItem && 
-                            inventoryItem.gameItem && 
-                            inventoryItem.gameItem.equippable && 
-                            inventoryItem.gameItem.slot) {
-                          onSelectEquipSlot(inventoryItem.gameItem.slot as EquipmentSlot)
-                          onEquipItem(inventoryItem.id)
-                        }
-                      }}
-                      size="small"
-                    />
+                    <TooltipProvider>
+                      <Tooltip>
+                        <TooltipTrigger asChild>
+                          <div>
+                            <ItemSlot
+                              item={inventoryItem.gameItem}
+                              onDragStart={() => {}}
+                              quantity={inventoryItem.quantity}
+                              onClick={() => {
+                                if (onSelectEquipSlot && 
+                                    onEquipItem && 
+                                    inventoryItem.gameItem && 
+                                    inventoryItem.gameItem.equippable && 
+                                    inventoryItem.gameItem.slot) {
+                                  onSelectEquipSlot(inventoryItem.gameItem.slot as EquipmentSlot)
+                                  onEquipItem(inventoryItem.id)
+                                }
+                              }}
+                              size="small"
+                              disableTooltip={true}
+                            />
+                          </div>
+                        </TooltipTrigger>
+                        <TooltipContent side="top" className="w-72 p-4">
+                          <div className="space-y-3">
+                            <div>
+                              <p className="font-medium text-lg">{inventoryItem.gameItem.name}</p>
+                              <p className="text-sm text-gray-400">{inventoryItem.gameItem.description}</p>
+                            </div>
+                            
+                            {inventoryItem.gameItem.stats && Object.keys(inventoryItem.gameItem.stats).length > 0 && (
+                              <div className="mt-2 bg-gray-900/50 p-2 rounded">
+                                <p className="text-xs font-medium text-gray-400 mb-1">Stats:</p>
+                                <div className="space-y-1">
+                                  {Object.entries(inventoryItem.gameItem.stats).map(([stat, value]) => (
+                                    <div key={stat} className="flex justify-between text-xs">
+                                      <span className="text-gray-400">{stat}</span>
+                                      <span className="text-blue-400">+{value}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            
+                            {inventoryItem.craftingPattern && inventoryItem.craftingPattern !== "none" && (
+                              <div className="mt-2 bg-gray-900/50 p-2 rounded">
+                                <p className="text-xs font-medium text-gray-400 mb-1">Crafting Patterns:</p>
+                                <PatternVisual pattern={inventoryItem.craftingPattern} />
+                              </div>
+                            )}
+                            
+                            {!inventoryItem.craftingPattern && (
+                              <p className="text-xs italic text-gray-500 mt-2">Not crafted by you</p>
+                            )}
+                          </div>
+                        </TooltipContent>
+                      </Tooltip>
+                    </TooltipProvider>
                   </div>
                 )}
               </div>

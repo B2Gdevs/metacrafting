@@ -23,7 +23,7 @@ export enum RarityType {
 }
 
 interface UseInventoryFilterProps {
-  inventory: Array<{ id: string; quantity: number }>;
+  inventory: Array<{ id: string; quantity: number; craftingPattern?: string; itemHash?: string }>;
   gameItems: Record<string, Item>;
 }
 
@@ -34,7 +34,13 @@ interface UseInventoryFilterReturn {
   setRarityFilter: (filter: RarityType | string) => void;
   showEquippableOnly: boolean;
   setShowEquippableOnly: (show: boolean) => void;
-  filteredInventory: Array<{ id: string; quantity: number; gameItem: Item }>;
+  filteredInventory: Array<{ 
+    id: string; 
+    quantity: number; 
+    gameItem: Item; 
+    craftingPattern?: string;
+    itemHash?: string;
+  }>;
 }
 
 export const useInventoryFilter = ({
@@ -50,21 +56,19 @@ export const useInventoryFilter = ({
     return inventory
       .filter(item => {
         const gameItem = gameItems[item.id];
-        
-        // Skip if game item doesn't exist
         if (!gameItem) return false;
         
-        // Type filter
+        // Filter by type
         if (inventoryFilter !== FilterType.All && gameItem.type !== inventoryFilter) {
           return false;
         }
         
-        // Rarity filter
+        // Filter by rarity
         if (rarityFilter !== RarityType.All && gameItem.rarity !== rarityFilter) {
           return false;
         }
         
-        // Equippable filter
+        // Filter by equippable
         if (showEquippableOnly && !gameItem.equippable) {
           return false;
         }
@@ -72,8 +76,11 @@ export const useInventoryFilter = ({
         return true;
       })
       .map(item => ({
-        ...item,
-        gameItem: gameItems[item.id]
+        id: item.id,
+        quantity: item.quantity,
+        gameItem: gameItems[item.id],
+        craftingPattern: item.craftingPattern,
+        itemHash: item.itemHash
       }));
   }, [inventory, gameItems, inventoryFilter, rarityFilter, showEquippableOnly]);
 

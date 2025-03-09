@@ -53,13 +53,18 @@ export const defaultFilterState: FilterState = {
   },
 }
 
-// Define the store state interface
-interface GameState {
-  // Character state
+// Define the inventory item interface
+export interface InventoryItem {
+  id: string;
+  quantity: number;
+  craftingPattern?: string;
+  itemHash?: string;
+}
+
+// Define the game state interface
+export interface GameState {
   character: CharacterStats
-  inventory: Array<{ id: string; quantity: number }>
-  
-  // Marketplace state
+  inventory: InventoryItem[]
   npcItems: NpcItem[]
   playerMarketItems: PlayerMarketItem[]
   selectedTab: "npc" | "player"
@@ -70,35 +75,28 @@ interface GameState {
   searchTerm: string
   
   // Actions
-  // Character actions
-  updateCharacter: (character: Partial<CharacterStats>) => void
-  updateInventory: (inventory: Array<{ id: string; quantity: number }>) => void
-  addToInventory: (itemId: string, quantity: number) => void
+  updateCharacter: (updates: Partial<CharacterStats>) => void
+  updateInventory: (inventory: InventoryItem[]) => void
+  addToInventory: (itemId: string, quantity: number, craftingPattern?: string, itemHash?: string) => void
   removeFromInventory: (itemId: string, quantity: number) => void
+  resetState: () => void
   
   // Marketplace actions
   setSelectedTab: (tab: "npc" | "player") => void
   setSelectedAction: (action: "buy" | "sell") => void
-  addNotification: (message: string, type: "success" | "error") => void
+  addNotification: (notification: Notification) => void
   clearNotifications: () => void
-  
-  // Item listing actions
-  buyItem: (itemId: string, currencies: Partial<CurrencyValues>, requireAllCurrencies: boolean, seller?: string) => void
-  sellItem: (itemId: string) => void
-  openListingDialog: (itemId: string) => void
-  listItem: () => void
-  updateDraftListing: (updates: Partial<PlayerMarketItem>) => void
-  clearDraftListing: () => void
-  
-  // Filter actions
+  setDraftListing: (listing: PlayerMarketItem | null) => void
+  addPlayerMarketItem: (item: PlayerMarketItem) => void
+  removePlayerMarketItem: (itemId: string) => void
   updateFilterState: (updates: Partial<FilterState>) => void
   resetFilters: () => void
   setSearchTerm: (term: string) => void
   
-  // Computed values
+  // Getters
   getFilteredNpcItems: () => NpcItem[]
   getFilteredPlayerItems: () => PlayerMarketItem[]
-  getInventoryWithPrices: () => Array<{ id: string; quantity: number; price: number }>
+  getInventoryWithPrices: () => Array<{ id: string; quantity: number; price: number; craftingPattern?: string; itemHash?: string }>
 }
 
 // Helper functions for filtering
@@ -313,8 +311,8 @@ export const useGameStore = create<GameState>()(
         index === self.findIndex(i => i.id === item.id)
       ),
       playerMarketItems: [],
-      selectedTab: "npc",
-      selectedAction: "buy",
+      selectedTab: "npc" as const,
+      selectedAction: "buy" as const,
       notifications: [],
       draftListing: null,
       filterState: defaultFilterState,
@@ -327,19 +325,47 @@ export const useGameStore = create<GameState>()(
       
       updateInventory: (inventory) => set({ inventory }),
       
-      addToInventory: (itemId, quantity) => set((state) => {
-        const updatedInventory = [...state.inventory]
-        const existingItemIndex = updatedInventory.findIndex(item => item.id === itemId)
+      addToInventory: (itemId, quantity, craftingPattern, itemHash) => set((state) => {
+        const updatedInventory = [...state.inventory];
         
-        if (existingItemIndex !== -1) {
-          // Increment quantity if item already exists
-          updatedInventory[existingItemIndex].quantity += quantity
+        // If we have a hash, look for an item with the same hash
+        if (itemHash) {
+          const existingItemIndex = updatedInventory.findIndex(item => 
+            item.id === itemId && item.itemHash === itemHash
+          );
+          
+          if (existingItemIndex !== -1) {
+            // Increment quantity if item with same hash already exists
+            updatedInventory[existingItemIndex].quantity += quantity;
+          } else {
+            // Add new item to inventory with hash
+            updatedInventory.push({ 
+              id: itemId, 
+              quantity, 
+              craftingPattern, 
+              itemHash 
+            });
+          }
         } else {
-          // Add new item to inventory
-          updatedInventory.push({ id: itemId, quantity })
+          // No hash provided, use traditional lookup by ID only
+          const existingItemIndex = updatedInventory.findIndex(item => 
+            item.id === itemId && !item.itemHash
+          );
+          
+          if (existingItemIndex !== -1) {
+            // Increment quantity if item already exists
+            updatedInventory[existingItemIndex].quantity += quantity;
+          } else {
+            // Add new item to inventory
+            updatedInventory.push({ 
+              id: itemId, 
+              quantity, 
+              craftingPattern 
+            });
+          }
         }
         
-        return { inventory: updatedInventory }
+        return { inventory: updatedInventory };
       }),
       
       removeFromInventory: (itemId, quantity) => set((state) => {
@@ -359,35 +385,97 @@ export const useGameStore = create<GameState>()(
         return { inventory: updatedInventory }
       }),
       
+      // Reset state function
+      resetState: () => set({
+        character: {
+          name: "Adventurer",
+          level: 1,
+          experience: 0,
+          experienceToNextLevel: 100,
+          strength: 10,
+          speed: 10,
+          health: 100,
+          maxHealth: 100,
+          magicPoints: 50,
+          maxMagicPoints: 50,
+          gold: 500,
+          gems: 10,
+          craftingStats: {
+            metalworking: 1,
+            magicworking: 1,
+            spellcraft: 1,
+          },
+          craftingExperience: {
+            metalworking: 0,
+            magicworking: 0,
+            spellcraft: 0,
+          },
+          equipment: {
+            head: undefined,
+            chest: undefined,
+            legs: undefined,
+            feet: undefined,
+            hands: undefined,
+            rings: [],
+            weapon: undefined,
+            offhand: undefined,
+            neck: undefined,
+          },
+        },
+        inventory: [
+          { id: "wood", quantity: 10 },
+          { id: "stone", quantity: 5 },
+          { id: "iron_ore", quantity: 3 },
+          { id: "leather", quantity: 2 },
+        ],
+        playerMarketItems: [],
+        selectedTab: "npc" as const,
+        selectedAction: "buy" as const,
+        notifications: [],
+        draftListing: null,
+        filterState: defaultFilterState,
+        searchTerm: "",
+      }),
+      
       // Marketplace actions
       setSelectedTab: (tab) => set({ selectedTab: tab }),
       
       setSelectedAction: (action) => set({ selectedAction: action }),
       
-      addNotification: (message, type) => set((state) => {
-        const newNotification = { message, type }
-        
+      addNotification: (notification) => set((state) => {
         // Auto-remove notification after 5 seconds
         setTimeout(() => {
           set((state) => ({
-            notifications: state.notifications.filter(n => n.message !== message)
+            notifications: state.notifications.filter(n => n.message !== notification.message)
           }))
         }, 5000)
         
-        return { notifications: [...state.notifications, newNotification] }
+        return { notifications: [...state.notifications, notification] }
       }),
       
       clearNotifications: () => set({ notifications: [] }),
       
+      // Draft listing actions
+      setDraftListing: (listing) => set({ draftListing: listing }),
+      
+      // Player market actions
+      addPlayerMarketItem: (item) => set((state) => ({
+        playerMarketItems: [...state.playerMarketItems, item]
+      })),
+      
+      removePlayerMarketItem: (itemId) => set((state) => ({
+        playerMarketItems: state.playerMarketItems.filter(item => item.id !== itemId)
+      })),
+      
       // Item listing actions
-      buyItem: (itemId, currencies, requireAllCurrencies, seller) => {
+      buyItem: (itemId: string, currencies: Partial<CurrencyValues>, requireAllCurrencies: boolean, seller?: string) => {
         const state = get()
         const { character, npcItems, playerMarketItems } = state
         
         // Get the item details
         const gameItem = gameItems[itemId]
         if (!gameItem) {
-          state.addNotification(`Item ${itemId} not found`, "error")
+          state.addNotification({ message: `Item ${itemId} not found`, type: "error" })
           return
         }
         
@@ -396,17 +484,17 @@ export const useGameStore = create<GameState>()(
           // All currencies are required
           if ((currencies[CurrencyType.GOLD] && character.gold < currencies[CurrencyType.GOLD]) || 
               (currencies[CurrencyType.GEMS] && character.gems < currencies[CurrencyType.GEMS])) {
-            state.addNotification("Not enough currency to purchase this item", "error")
+            state.addNotification({ message: "Not enough currency to purchase this item", type: "error" })
             return
           }
         } else {
           // Check each currency
           if (currencies[CurrencyType.GOLD] && character.gold < currencies[CurrencyType.GOLD]) {
-            state.addNotification("Not enough gold to purchase this item", "error")
+            state.addNotification({ message: "Not enough gold to purchase this item", type: "error" })
             return
           }
           if (currencies[CurrencyType.GEMS] && character.gems < currencies[CurrencyType.GEMS]) {
-            state.addNotification("Not enough gems to purchase this item", "error")
+            state.addNotification({ message: "Not enough gems to purchase this item", type: "error" })
             return
           }
         }
@@ -444,7 +532,7 @@ export const useGameStore = create<GameState>()(
           )
           
           if (!playerItem) {
-            state.addNotification("Item not found in player marketplace", "error")
+            state.addNotification({ message: "Item not found in player marketplace", type: "error" })
             return
           }
           
@@ -484,24 +572,24 @@ export const useGameStore = create<GameState>()(
         }
         
         // Add success notification
-        state.addNotification(`Successfully purchased ${gameItem.name}`, "success")
+        state.addNotification({ message: `Successfully purchased ${gameItem.name}`, type: "success" })
       },
       
-      sellItem: (itemId) => {
+      sellItem: (itemId: string) => {
         const state = get()
         const { character, inventory } = state
         
         // Get the item details
         const gameItem = gameItems[itemId]
         if (!gameItem) {
-          state.addNotification(`Item ${itemId} not found`, "error")
+          state.addNotification({ message: `Item ${itemId} not found`, type: "error" })
           return
         }
         
         // Check if player has the item
         const inventoryItem = inventory.find(item => item.id === itemId)
         if (!inventoryItem || inventoryItem.quantity <= 0) {
-          state.addNotification(`You don't have any ${gameItem.name} to sell`, "error")
+          state.addNotification({ message: `You don't have any ${gameItem.name} to sell`, type: "error" })
           return
         }
         
@@ -518,17 +606,17 @@ export const useGameStore = create<GameState>()(
         set({ character: updatedCharacter })
         
         // Add success notification
-        state.addNotification(`Successfully sold ${gameItem.name} for ${sellPrice} gold`, "success")
+        state.addNotification({ message: `Successfully sold ${gameItem.name} for ${sellPrice} gold`, type: "success" })
       },
       
-      openListingDialog: (itemId) => {
+      openListingDialog: (itemId: string) => {
         const state = get()
         const { character } = state
         
         // Get the item details
         const gameItem = gameItems[itemId]
         if (!gameItem) {
-          state.addNotification(`Item ${itemId} not found`, "error")
+          state.addNotification({ message: `Item ${itemId} not found`, type: "error" })
           return
         }
         
@@ -553,14 +641,14 @@ export const useGameStore = create<GameState>()(
         const { draftListing, inventory, playerMarketItems } = state
         
         if (!draftListing) {
-          state.addNotification("No item selected for listing", "error")
+          state.addNotification({ message: "No item selected for listing", type: "error" })
           return
         }
         
         // Check if player has the item
         const inventoryItem = inventory.find(item => item.id === draftListing.id)
         if (!inventoryItem || inventoryItem.quantity < draftListing.quantity) {
-          state.addNotification(`You don't have enough ${draftListing.originalItem?.name || draftListing.id} to list`, "error")
+          state.addNotification({ message: `You don't have enough ${draftListing.originalItem?.name || draftListing.id} to list`, type: "error" })
           return
         }
         
@@ -569,7 +657,7 @@ export const useGameStore = create<GameState>()(
         const gemsPrice = draftListing.currencies[CurrencyType.GEMS] || 0
         
         if (goldPrice <= 0 && gemsPrice <= 0) {
-          state.addNotification("You must set a price for your listing", "error")
+          state.addNotification({ message: "You must set a price for your listing", type: "error" })
           return
         }
         
@@ -586,10 +674,10 @@ export const useGameStore = create<GameState>()(
         })
         
         // Add success notification
-        state.addNotification(`Successfully listed ${draftListing.quantity}x ${draftListing.originalItem?.name || draftListing.id}`, "success")
+        state.addNotification({ message: `Successfully listed ${draftListing.quantity}x ${draftListing.originalItem?.name || draftListing.id}`, type: "success" })
       },
       
-      updateDraftListing: (updates) => set((state) => {
+      updateDraftListing: (updates: Partial<PlayerMarketItem>) => set((state) => {
         if (!state.draftListing) return state
         
         // Create a new currencies object with the updates
@@ -671,7 +759,9 @@ export const useGameStore = create<GameState>()(
           return {
             id: item.id,
             quantity: item.quantity,
-            price
+            price,
+            craftingPattern: item.craftingPattern,
+            itemHash: item.itemHash
           }
         })
       }

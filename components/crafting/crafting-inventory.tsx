@@ -7,6 +7,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Button } from "@/components/ui/button"
 import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/components/ui/tooltip"
 import ItemSlot, { Item, ItemType, ItemRarity } from "@/components/item-slot"
+import PatternVisual from "./pattern-visual"
 
 interface CraftingInventoryProps {
   inventory: Array<{ id: string; quantity: number; craftingPattern?: string; itemHash?: string }>
@@ -14,73 +15,6 @@ interface CraftingInventoryProps {
   onDragStart: (item: string, source: "inventory" | "grid", index: number) => void
   onDropArea: () => void
 }
-
-// Helper function to get a human-readable pattern name
-const getPatternName = (pattern?: string): string => {
-  if (!pattern || pattern === "none") return "No pattern";
-  
-  // Handle multiple patterns
-  if (pattern.includes(",")) {
-    const patterns = pattern.split(",");
-    // Format each pattern and join with "and"
-    const formattedPatterns = patterns.map(p => 
-      p.charAt(0).toUpperCase() + p.slice(1).replace(/([A-Z])/g, ' $1')
-    );
-    
-    if (formattedPatterns.length === 2) {
-      return `${formattedPatterns[0]} and ${formattedPatterns[1]}`;
-    } else {
-      const lastPattern = formattedPatterns.pop();
-      return `${formattedPatterns.join(", ")} and ${lastPattern}`;
-    }
-  }
-  
-  // Single pattern
-  return pattern.charAt(0).toUpperCase() + 
-    pattern.slice(1).replace(/([A-Z])/g, ' $1');
-};
-
-// Component to render a visual representation of a pattern
-const PatternVisual = ({ pattern }: { pattern: string }) => {
-  // If no pattern or "none", return nothing
-  if (!pattern || pattern === "none") {
-    return <div className="text-gray-500 italic text-xs">No specific pattern used</div>;
-  }
-  
-  // Split multiple patterns
-  const patterns = pattern.includes(",") ? pattern.split(",") : [pattern];
-  
-  // Define pattern colors and icons
-  const patternInfo: Record<string, { color: string, icon: string }> = {
-    lShape: { color: "bg-purple-500", icon: "L" },
-    square: { color: "bg-blue-500", icon: "■" },
-    cross: { color: "bg-green-500", icon: "✚" },
-    triangle: { color: "bg-amber-500", icon: "▲" },
-    diagonal: { color: "bg-red-500", icon: "╲" },
-    linear: { color: "bg-cyan-500", icon: "—" },
-    circle: { color: "bg-pink-500", icon: "○" }
-  };
-  
-  return (
-    <div className="flex flex-wrap gap-1">
-      {patterns.map((p, index) => {
-        const info = patternInfo[p] || { color: "bg-gray-500", icon: "?" };
-        const textColor = p === "amber" ? "text-amber-400" : `text-${info.color.split('-')[1]}-400`;
-        
-        return (
-          <div key={index} className="flex items-center bg-gray-800/70 rounded px-2 py-1">
-            <div className={`w-4 h-4 rounded-sm ${info.color} mr-1 flex items-center justify-center text-xs font-bold text-white`}>
-              {info.icon}
-            </div>
-            <span className={`text-xs ${textColor}`}>
-              {p.charAt(0).toUpperCase() + p.slice(1).replace(/([A-Z])/g, ' $1')}
-            </span>
-          </div>
-        );
-      })}
-    </div>
-  );
-};
 
 export default function CraftingInventory({
   inventory,

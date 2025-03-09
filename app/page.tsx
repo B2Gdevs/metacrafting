@@ -46,7 +46,7 @@ export default function Home() {
   };
 
   // Handle inventory updates
-  const handleUpdateInventory = (updatedInventory: Array<{ id: string; quantity: number }>) => {
+  const handleUpdateInventory = (updatedInventory: Array<{ id: string; quantity: number; craftingPattern?: string; itemHash?: string }>) => {
     updateInventory(updatedInventory);
   };
 
