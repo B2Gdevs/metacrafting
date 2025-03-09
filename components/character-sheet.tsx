@@ -60,7 +60,7 @@ interface CharacterSheetProps {
   onConsumeMagicPotion: () => void
   onUpdateCharacter: (updatedCharacter: CharacterStats) => void
   manaPotionCount?: number
-  inventory: Array<{ id: string; quantity: number }>
+  inventory: Array<{ id: string; quantity: number; craftingPattern?: string; itemHash?: string }>
   gameItems: Record<string, Item>
   onEquipItem: (itemId: string, slot: EquipmentSlot) => void
   onUnequipItem: (slot: EquipmentSlot, ringIndex?: number) => void

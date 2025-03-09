@@ -573,3 +573,30 @@ export const gameItems: Record<string, Item> = {
     value: 500
   }
 }; 
+
+/**
+ * Generate a unique hash for an item based on its attributes and crafting pattern
+ */
+export function generateItemHash(item: Item, craftingPattern?: string): string {
+  // Create an object with all the attributes that make an item unique
+  const uniqueAttributes = {
+    id: item.id,
+    name: item.name,
+    stats: item.stats || {},
+    rarity: item.rarity,
+    type: item.type,
+    craftingPattern: craftingPattern || 'none'
+  };
+
+  // Convert to string and create a simple hash
+  const attributeString = JSON.stringify(uniqueAttributes);
+  
+  // Simple string hash function for browsers
+  let hash = 0;
+  for (let i = 0; i < attributeString.length; i++) {
+    const char = attributeString.charCodeAt(i);
+    hash = ((hash << 5) - hash) + char;
+    hash = hash & hash; // Convert to 32bit integer
+  }
+  return hash.toString(36);
+} 

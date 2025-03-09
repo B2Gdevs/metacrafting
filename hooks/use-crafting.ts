@@ -1,16 +1,24 @@
 import { useState, useCallback, useMemo, useEffect } from "react";
 import { CraftingControlType } from "@/lib/recipes";
-import { EquipmentSlot } from "@/lib/items";
+import { EquipmentSlot, generateItemHash } from "@/lib/items";
 import { CharacterStats } from "@/components/character-sheet";
 import { Item } from "@/components/item-slot";
 import { Recipe } from "@/components/recipe-book";
 
+export interface InventoryItem {
+  id: string;
+  quantity: number;
+  craftingPattern?: string;
+  itemHash?: string;
+}
+
 export interface UseCraftingProps {
   character: CharacterStats;
-  inventory: Array<{ id: string; quantity: number; craftingPattern?: string }>;
+  inventory: InventoryItem[];
+  onUpdateCharacter: (character: CharacterStats, inventory: InventoryItem[]) => void;
   gameItems: Record<string, Item>;
+  onCraftingComplete?: () => void;
   recipes: Recipe[];
-  onUpdateCharacter: (updatedCharacter: CharacterStats, updatedInventory?: Array<{ id: string; quantity: number; craftingPattern?: string }>) => void;
 }
 
 export interface UseCraftingReturn {
@@ -30,6 +38,10 @@ export interface UseCraftingReturn {
     type: 'success' | 'error';
     message: string;
   } | null;
+  setCraftingNotification: (notification: {
+    type: 'success' | 'error';
+    message: string;
+  } | null) => void;
   
   // Handlers
   handleDragStart: (item: string, source: "inventory" | "grid", index: number) => void;
@@ -388,11 +400,13 @@ export const useCrafting = ({
   }, []);
 
   const checkCrossPattern = useCallback((grid: (string | null)[]) => {
-    // Check for a cross pattern (center + adjacent cells)
-    return grid[4] !== null && (
-      (grid[1] !== null && grid[4] !== null && grid[7] !== null) || // Vertical
-      (grid[3] !== null && grid[4] !== null && grid[5] !== null)    // Horizontal
-    );
+    // Check for a cross pattern (center + all adjacent cells)
+    // Must have center and all four adjacent cells filled
+    return grid[4] !== null && // center
+           grid[1] !== null && // top
+           grid[3] !== null && // left
+           grid[5] !== null && // right
+           grid[7] !== null;   // bottom
   }, []);
 
   const checkTrianglePattern = useCallback((grid: (string | null)[]) => {
@@ -535,20 +549,25 @@ export const useCrafting = ({
     const craftingSucceeds = roll <= successChance;
     
     if (craftingSucceeds) {
-      // Add crafted item to inventory with pattern information
-      const existingItem = updatedInventory.find(item => item.id === craftedItemId);
+      // Generate a unique hash for this crafted item
+      const itemHash = generateItemHash(outputItem, patternUsed);
       
-      if (existingItem) {
-        existingItem.quantity += 1;
-        // Make sure to update the pattern even for existing items
-        existingItem.craftingPattern = patternUsed;
+      // Check if we already have this exact item (same attributes and pattern)
+      const existingItemIndex = updatedInventory.findIndex(
+        item => item.id === craftedItemId && item.itemHash === itemHash
+      );
+      
+      if (existingItemIndex >= 0) {
+        // Increment quantity of existing item
+        updatedInventory[existingItemIndex].quantity += 1;
       } else {
-        const newItem = { 
-          id: craftedItemId, 
+        // Add as new item with hash
+        updatedInventory.push({
+          id: craftedItemId,
           quantity: 1,
-          craftingPattern: patternUsed // Store the pattern used
-        };
-        updatedInventory.push(newItem);
+          craftingPattern: patternUsed,
+          itemHash: itemHash
+        });
       }
       
       // Calculate experience gain
@@ -653,11 +672,25 @@ export const useCrafting = ({
     });
     
     // Add crafted item to inventory
-    const existingItem = updatedInventory.find(item => item.id === recipe.output);
-    if (existingItem) {
-      existingItem.quantity += 1;
+    const outputItem = gameItems[recipe.output];
+    const itemHash = generateItemHash(outputItem, "none"); // No pattern for quick craft
+    
+    // Check if we already have this exact item
+    const existingItemIndex = updatedInventory.findIndex(
+      item => item.id === recipe.output && item.itemHash === itemHash
+    );
+    
+    if (existingItemIndex >= 0) {
+      // Increment quantity of existing item
+      updatedInventory[existingItemIndex].quantity += 1;
     } else {
-      updatedInventory.push({ id: recipe.output, quantity: 1 });
+      // Add as new item with hash
+      updatedInventory.push({ 
+        id: recipe.output, 
+        quantity: 1,
+        craftingPattern: "none",
+        itemHash: itemHash
+      });
     }
     
     // Calculate experience gain
@@ -691,8 +724,8 @@ export const useCrafting = ({
     checkLevelUp("spellcraft");
     
     // Update character
-    onUpdateCharacter(updatedCharacter);
-  }, [recipes, inventory, character, onUpdateCharacter]);
+    onUpdateCharacter(updatedCharacter, updatedInventory);
+  }, [recipes, inventory, character, onUpdateCharacter, gameItems]);
   
   // Move the handleQuickAdd function after the clearGrid function
   const handleQuickAdd = useCallback((recipe: Recipe) => {
@@ -938,6 +971,7 @@ export const useCrafting = ({
     
     // Notification state
     craftingNotification,
+    setCraftingNotification,
     
     // Handlers
     handleDragStart,

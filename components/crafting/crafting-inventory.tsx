@@ -9,7 +9,7 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import ItemSlot, { Item, ItemType, ItemRarity } from "@/components/item-slot"
 
 interface CraftingInventoryProps {
-  inventory: Array<{ id: string; quantity: number; craftingPattern?: string }>
+  inventory: Array<{ id: string; quantity: number; craftingPattern?: string; itemHash?: string }>
   gameItems: Record<string, Item>
   onDragStart: (item: string, source: "inventory" | "grid", index: number) => void
   onDropArea: () => void

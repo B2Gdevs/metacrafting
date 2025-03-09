@@ -7,15 +7,17 @@ import { gameItems } from "@/lib/items"
 import { recipes } from "@/lib/recipes"
 import { AnimatePresence, motion } from "framer-motion"
 import { AlertTriangle, Book, CheckCircle, Info, Sparkles } from "lucide-react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { type CharacterStats } from "./character-sheet"
 import RecipeBook from "./recipe-book"
+import { Toast, ToastProvider, ToastViewport } from "@/components/ui/toast"
 
 // Import new components
 import CraftingCharacterStats from "./crafting/crafting-character-stats"
 import CraftingControlsPanel from "./crafting/crafting-controls-panel"
 import CraftingGridPanel from "./crafting/crafting-grid-panel"
 import CraftingInventory from "./crafting/crafting-inventory"
+import DebugInventory from "./crafting/debug-inventory"
 
 // Import hook
 import { useCrafting } from "@/hooks/use-crafting"
@@ -24,6 +26,7 @@ type InventoryItem = {
   id: string
   quantity: number
   craftingPattern?: string
+  itemHash?: string
 }
 
 interface CraftingSystemProps {
@@ -62,6 +65,7 @@ export default function CraftingSystem({
     
     // Notification state
     craftingNotification,
+    setCraftingNotification,
     
     // Handlers
     handleDragStart,
@@ -115,79 +119,103 @@ export default function CraftingSystem({
     });
   };
 
+  // Add useEffect to automatically clear notifications after a delay
+  useEffect(() => {
+    if (craftingNotification) {
+      const timer = setTimeout(() => {
+        // This will trigger a re-render in the useCrafting hook
+        // which will clear the notification
+        if (craftingNotification) {
+          handleCraftingNotificationDismiss();
+        }
+      }, 3000);
+      
+      return () => clearTimeout(timer);
+    }
+  }, [craftingNotification]);
+
+  // Add a handler to dismiss notifications
+  const handleCraftingNotificationDismiss = () => {
+    setCraftingNotification(null);
+  };
+
   return (
     <div className="container mx-auto p-4">
-      <h1 className="text-3xl font-bold text-amber-400 mb-6 flex items-center">
-        <Sparkles className="mr-2 h-6 w-6" />
-        Crafting Workshop
-        <TooltipProvider>
-          <Tooltip>
-            <TooltipTrigger asChild>
-              <Info className="ml-2 h-4 w-4 text-gray-400 cursor-help" />
-            </TooltipTrigger>
-            <TooltipContent side="right" className="max-w-md">
-              <p className="text-sm">
-                Drag ingredients from your inventory to the crafting grid. Select recipes from the recipe book to see what you can craft.
-              </p>
-            </TooltipContent>
-          </Tooltip>
-        </TooltipProvider>
-        
-        {/* Recipe Book Dialog Trigger */}
-        <Dialog open={isRecipeBookOpen} onOpenChange={setIsRecipeBookOpen}>
-          <DialogTrigger asChild>
-            <Button variant="ghost" className="ml-auto">
-              <Book className="h-5 w-5 text-amber-400" />
-              <span className="ml-2">Recipe Book</span>
-            </Button>
-          </DialogTrigger>
-          <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
-            <RecipeBook 
-              recipes={recipes} 
-              gameItems={gameItems} 
-              onSelectRecipe={(recipe) => {
-                setSelectedRecipe(recipe);
-              }}
-              onQuickCraft={(recipeId) => {
-                handleQuickCraft(recipeId);
-                setIsRecipeBookOpen(false);
-              }}
-              onQuickAdd={(recipe) => {
-                handleQuickAdd(recipe);
-                setIsRecipeBookOpen(false);
-              }}
-              inventory={inventory}
-            />
-          </DialogContent>
-        </Dialog>
-      </h1>
+      <ToastProvider>
+        <h1 className="text-3xl font-bold text-amber-400 mb-6 flex items-center">
+          <Sparkles className="mr-2 h-6 w-6" />
+          Crafting Workshop
+          <TooltipProvider>
+            <Tooltip>
+              <TooltipTrigger asChild>
+                <Info className="ml-2 h-4 w-4 text-gray-400 cursor-help" />
+              </TooltipTrigger>
+              <TooltipContent side="right" className="max-w-md">
+                <p className="text-sm">
+                  Drag ingredients from your inventory to the crafting grid. Select recipes from the recipe book to see what you can craft.
+                </p>
+              </TooltipContent>
+            </Tooltip>
+          </TooltipProvider>
+          
+          {/* Recipe Book Dialog Trigger */}
+          <Dialog open={isRecipeBookOpen} onOpenChange={setIsRecipeBookOpen}>
+            <DialogTrigger asChild>
+              <Button variant="ghost" className="ml-auto">
+                <Book className="h-5 w-5 text-amber-400" />
+                <span className="ml-2">Recipe Book</span>
+              </Button>
+            </DialogTrigger>
+            <DialogContent className="max-w-4xl max-h-[80vh] overflow-y-auto">
+              <RecipeBook 
+                recipes={recipes} 
+                gameItems={gameItems} 
+                onSelectRecipe={(recipe) => {
+                  setSelectedRecipe(recipe);
+                }}
+                onQuickCraft={(recipeId) => {
+                  handleQuickCraft(recipeId);
+                  setIsRecipeBookOpen(false);
+                }}
+                onQuickAdd={(recipe) => {
+                  handleQuickAdd(recipe);
+                  setIsRecipeBookOpen(false);
+                }}
+                inventory={inventory}
+              />
+            </DialogContent>
+          </Dialog>
+        </h1>
 
-      {/* Crafting Notification */}
-      <AnimatePresence>
+        {/* Replace the inline notification with a Toast */}
         {craftingNotification && (
-          <motion.div
-            initial={{ opacity: 0, y: -20 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: -20 }}
-            className={`mb-4 p-3 rounded-md flex items-center ${
+          <Toast
+            variant={craftingNotification.type === 'success' ? 'default' : 'destructive'}
+            className={`${
               craftingNotification.type === 'success' 
-                ? 'bg-green-900/30 border border-green-700' 
-                : 'bg-red-900/30 border border-red-700'
+                ? 'bg-green-900/90 border-green-700 text-green-100' 
+                : 'bg-red-900/90 border-red-700 text-red-100'
             }`}
           >
-            {craftingNotification.type === 'success' ? (
-              <CheckCircle className="h-5 w-5 text-green-400 mr-2" />
-            ) : (
-              <AlertTriangle className="h-5 w-5 text-red-400 mr-2" />
-            )}
-            <p className={`text-sm ${
-              craftingNotification.type === 'success' ? 'text-green-300' : 'text-red-300'
-            }`}>
-              {craftingNotification.message}
-            </p>
-          </motion.div>
+            <div className="flex items-center gap-2">
+              {craftingNotification.type === 'success' ? (
+                <CheckCircle className="h-5 w-5 text-green-400" />
+              ) : (
+                <AlertTriangle className="h-5 w-5 text-red-400" />
+              )}
+              <span>{craftingNotification.message}</span>
+            </div>
+          </Toast>
         )}
-      </AnimatePresence>
+        
+        {/* Add Debug Inventory component */}
+        <DebugInventory 
+          inventory={inventory}
+          onUpdateInventory={onUpdateInventory}
+        />
+        
+        <ToastViewport />
+      </ToastProvider>
 
       <div className="space-y-4">
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
@@ -257,17 +285,6 @@ export default function CraftingSystem({
                 />
               </div>
             </div>
-            
-            {/* Notification area for crafting success/failure */}
-            {craftingNotification && (
-              <div className={`mt-4 p-3 rounded-md ${
-                craftingNotification.type === 'success' 
-                  ? 'bg-green-900/30 border border-green-700 text-green-300' 
-                  : 'bg-red-900/30 border border-red-700 text-red-300'
-              }`}>
-                {craftingNotification.message}
-              </div>
-            )}
           </div>
         </div>
       </div>
